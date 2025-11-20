@@ -1,0 +1,98 @@
+# ТЕХНИКИ НАГРУЗОЧНОГО ТЕСТИРОВАНИЯ С K6
+
+## 1. АРХИТЕКТУРНЫЕ ПАТТЕРНЫ ТЕСТИРОВАНИЯ
+
+### 1.1 Page Object Model (POM) для API тестирования
+```javascript
+// libs/api-client.js
+export class APIClient {
+    constructor(baseURL, authToken = null) {
+        this.baseURL = baseURL;
+        this.authToken = authToken;
+        this.jar = http.cookieJar();
+    }
+
+    setAuthToken(token) {
+        this.authToken = token;
+    }
+
+    get(endpoint, params = {}) {
+        const url = `${this.baseURL}${endpoint}`;
+        const headers = this._getHeaders();
+
+        return http.get(url, { headers, params });
+    }
+
+    post(endpoint, data, params = {}) {
+        const url = `${this.baseURL}${endpoint}`;
+        const headers = this._getHeaders();
+        headers['Content-Type'] = 'application/json';
+
+        return http.post(url, JSON.stringify(data), { headers, params });
+    }
+
+    put(endpoint, data, params = {}) {
+        const url = `${this.baseURL}${endpoint}`;
+        const headers = this._getHeaders();
+        headers['Content-Type'] = 'application/json';
+
+        return http.put(url, JSON.stringify(data), { headers, params });
+    }
+
+    delete(endpoint, params = {}) {
+        const url = `${this.baseURL}${endpoint}`;
+        const headers = this._getHeaders();
+
+        return http.del(url, { headers, params });
+    }
+
+    _getHeaders() {
+        const headers = {};
+        if (this.authToken) {
+            headers['Authorization'] = `Bearer ${this.authToken}`;
+        }
+        return headers;
+    }
+}
+
+// Использование
+import { APIClient } from './libs/api-client.js';
+
+const client = new APIClient(__ENV.BASE_URL);
+
+export default function() {
+    // Аутентификация
+    const loginResponse = client.post('/auth/login', {
+        email: 'user@testsite.com',
+        password: 'password'
+    });
+
+    const token = loginResponse.json().token;
+    client.setAuthToken(token);
+
+    // API тесты
+    client.get('/users/profile');
+    client.post('/posts', { title: 'Test Post', content: 'Content' });
+}
+```
+
+### 1.2 Builder Pattern для тестовых данных
+```javascript
+// libs/test-data-builder.js
+export class UserBuilder {
+    constructor() {
+        this.user = {
+            id: null,
+            email: `user_${Date.now()}@test.com`,
+            name: 'Test User',
+            role: 'user',
+            preferences: {}
+        };
+    }
+
+    withId(id) {
+        this.user.id = id;
+        return this;
+    }
+
+    withEmail(email) {

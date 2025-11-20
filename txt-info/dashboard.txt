@@ -1,0 +1,57 @@
+//// Настройка: результат можно посмотреть в .dashboard-2587.png / .dashboard-2587-2.png
+
+Configuration -> Data Sources -> InfluxDB
+"Test" - должно быть "Data source is working"
+Если источник данных работает, то проверить дашборды:
+Перейдите в Dashboards -> Browse
+Должны быть дашборды для k6 (например, "K6 Load Testing Results")
+Если дашбордов нет, их нужно импортировать.
+
+дашборды для k6 и InfluxDB можно найти здесь:
+https://grafana.com/grafana/dashboards/?search=k6
+Например: K6 Load Testing Results
+импортировать дашборд в Grafana:
+В Grafana  "+" -> Import
+ID дашборда (например, 2587) или загрузить JSON файл (тоже если порыскать на просторах интернета можно найти)
+источник данных InfluxDB
+проверить, что в дашборде выбраны правильные измерения (measurements) и поля (fields).
+
+
+
+Для приложений:
+-----Spring Boot: ID 11378
+-----Nginx: ID 12708
+-----Redis: ID 11835
+
+Для инфраструктуры:
+-----Docker: ID 11539
+-----Kubernetes: ID 315
+-----MySQL: ID 7362
+
+-------- настройка через provisioning
+
+# папка для дашбордов
+mkdir -p grafana/provisioning/dashboards
+
+# конфиг для дашбордов
+@"
+apiVersion: 1
+
+providers:
+  - name: 'default'
+    orgId: 1
+    folder: ''
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards
+"@ | Out-File -FilePath "grafana/provisioning/dashboards/dashboards.yml" -Encoding utf8
+
+# готовый k6 дашборд
+Invoke-WebRequest -Uri "https://grafana.com/api/dashboards/2587/revisions/1/download" -OutFile "grafana/provisioning/dashboards/k6-dashboard.json"
+
+#
+docker-compose restart grafana
+

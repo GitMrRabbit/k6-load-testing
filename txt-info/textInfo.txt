@@ -1,0 +1,4 @@
+k6 → InfluxDB → Grafana (бизнеесовые)
+Prometheus → node-exporter → Grafana (системные)
+
+Alertmanager - пока никак

@@ -1,0 +1,5 @@
+id,name,username,email,street,city,zipcode,phone,website,company_name
+1,John Doe,johndoe,john@example.com,123 Main St,New York,10001,555-0101,https://john.com,Acme Inc
+2,Jane Smith,janesmith,jane@example.com,456 Oak Ave,Los Angeles,90001,555-0102,https://jane.com,Globex Corp
+3,Bob Johnson,bobjohnson,bob@example.com,789 Pine Rd,Chicago,60001,555-0103,https://bob.com,Stark Ind
+4,Alice Brown,alicebrown,alice@example.com,321 Elm St,Houston,77001,555-0104,https://alice.com,Wayne Ent

@@ -1,0 +1,337 @@
+# РУКОВОДСТВО ПО МОНИТОРИНГУ В ПРОЕКТЕ K6 LOAD TESTING
+
+## 1. АРХИТЕКТУРА МОНИТОРИНГА
+
+Проект использует стек технологий для комплексного мониторинга:
+- k6: Генерация нагрузки и сбор метрик приложения
+- InfluxDB: Хранение метрик k6
+- Prometheus: Сбор системных метрик и метрик приложений
+- Grafana: Визуализация и дашборды
+- Node Exporter: Сбор системных метрик хоста
+
+## 2. ЗАПУСК СИСТЕМЫ МОНИТОРИНГА
+
+### 2.1 Базовый запуск
+```bash
+# Запуск всех сервисов мониторинга
+docker-compose up -d prometheus grafana influxdb node-exporter
+
+# Проверка статуса
+docker-compose ps
+```
+
+### 2.2 Доступ к интерфейсам
+- Grafana: http://localhost:3001 (admin/admin)
+- Prometheus: http://localhost:9090
+
+
+## 3. K6 И ИНТЕГРАЦИЯ С МОНИТОРИНГОМ
+
+### 3.1 Встроенные метрики k6
+k6 автоматически собирает метрики:
+- `http_req_duration` - время выполнения HTTP запросов
+- `http_req_failed` - количество неудачных запросов
+- `vus` - количество активных виртуальных пользователей
+- `iterations` - общее количество выполненных итераций
+
+### 3.2 Кастомные метрики проекта
+Проект расширяет метрики через `utils.js`:
+```javascript
+// Дополнительные метрики
+export const requestDuration = new Trend('request_duration');
+export const errorCount = new Counter('errors');
+export const successRate = new Rate('success_rate');
+export const activeUsers = new Gauge('active_users');
+export const throughputRate = new Rate('throughput');
+```
+
+### 3.3 Вывод метрик в InfluxDB
+```bash
+# Запуск теста с выводом в InfluxDB
+docker exec -it k6-dashboard k6 run \
+  --out influxdb=http://influxdb:8086/k6 \
+  /scripts/tests/scenarios/load-test.js
+```
+
+## 4. PROMETHEUS - СИСТЕМА СБОРА МЕТРИК
+
+### 4.1 Конфигурация (prometheus.yml)
+```yaml
+global:
+  scrape_interval: 15s  # Частота сбора метрик
+
+scrape_configs:
+  - job_name: 'prometheus'  # Метрики самого Prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'node-exporter'  # Системные метрики
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  - job_name: 'influxdb'  # Метрики InfluxDB
+    static_configs:
+      - targets: ['influxdb:8086']
+    metrics_path: /metrics
+```
+
+### 4.2 Ключевые метрики Prometheus
+- node_cpu_seconds_total: Использование CPU
+- node_memory_MemTotal_bytes: Общая память
+- node_memory_MemAvailable_bytes: Доступная память
+- node_disk_io_time_seconds_total: Время дисковых операций
+- node_network_receive_bytes_total: Входящий сетевой трафик
+
+### 4.3 Запросы в Prometheus
+Примеры PromQL запросов:
+```promql
+# CPU usage percentage
+100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+
+# Memory usage percentage
+100 - ((node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100)
+
+# Network traffic
+rate(node_network_receive_bytes_total[5m])
+```
+
+## 5. GRAFANA - ВИЗУАЛИЗАЦИЯ ДАННЫХ
+
+### 5.1 Настройка источников данных
+Проект автоматически настраивает:
+1. InfluxDB: Для метрик k6
+2. Prometheus: Для системных метрик
+
+### 5.2 Готовый дашборд k6
+Файл `grafana/provisioning/dashboards/k6-dashboard.json` содержит:
+- HTTP Request Rate (запросов в секунду)
+- Response Time (время ответа)
+- Error Rate (процент ошибок)
+- Active Virtual Users (активные VUS)
+
+### 5.3 Создание нового дашборда
+1. В Grafana: **+ → Dashboard → Add new panel** (см dashboard.txt)
+2. Выберите источник данных (InfluxDB или Prometheus)
+3. Напишите запрос или выберите метрику
+4. Настройте визуализацию (график, таблица, etc.)
+
+### 5.4 Примеры запросов для дашбордов
+
+#### Метрики k6 из InfluxDB
+```sql
+-- Response time percentiles
+SELECT percentile("value", 95) FROM "request_duration" WHERE $timeFilter GROUP BY time(1m)
+
+-- Error rate
+SELECT "value" FROM "error_rate" WHERE $timeFilter
+
+-- Throughput
+SELECT sum("value") FROM "throughput" WHERE $timeFilter GROUP BY time(1m)
+```
+
+#### Системные метрики из Prometheus
+```promql
+-- CPU Usage
+100 - (avg by(instance) (irate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+
+-- Memory Usage
+100 - ((node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100)
+
+-- Disk I/O
+rate(node_disk_io_time_seconds_total[5m])
+```
+
+## 6. NODE EXPORTER - СИСТЕМНЫЕ МЕТРИКИ
+
+### 6.1 Что мониторит
+Node Exporter собирает метрики операционной системы:
+- CPU: Использование, загрузка ядер
+- Память: Общая, используемая, доступная
+- Диск: I/O операции, использование пространства
+- Сеть: Входящий/исходящий трафик, ошибки
+- Процессы: Количество, статусы
+
+### 6.2 Монтирование системных директорий
+В docker-compose.yml:
+```yaml
+node-exporter:
+  volumes:
+    - /proc:/host/proc:ro    # Информация о процессах
+    - /sys:/host/sys:ro      # Системная информация
+    - /:/rootfs:ro           # Корневая файловая система
+```
+
+### 6.3 Ключевые метрики для анализа
+```promql
+# CPU по ядрам
+node_cpu_seconds_total{mode!="idle"}
+
+# Использование памяти
+node_memory_Active_bytes / node_memory_MemTotal_bytes * 100
+
+# Дисковое пространство
+(node_filesystem_size_bytes - node_filesystem_free_bytes) / node_filesystem_size_bytes * 100
+
+# Сетевая активность
+rate(node_network_receive_bytes_total[5m])
+rate(node_network_transmit_bytes_total[5m])
+```
+
+## 7. АНАЛИЗ ПРОИЗВОДИТЕЛЬНОСТИ
+
+### 7.1 Ключевые индикаторы (KPIs)
+- Latency (Задержка): p95, p99 response time < SLA
+- Throughput (Пропускная способность): RPS, RPM
+- Availability (Доступность): Uptime, error rate
+- Resource Usage: CPU, Memory, Disk, Network
+
+### 7.2 Анализ узких мест
+1. Высокий CPU: Оптимизация кода, кеширование
+2. Высокая память: Утечки памяти, оптимизация структур данных
+3. Медленный диск: SSD, оптимизация запросов к БД
+4. Сетевая задержка: CDN, оптимизация API
+
+### 7.3 Корреляция метрик
+- Связь между VUS и response time
+- Влияние системных ресурсов на производительность
+- Корреляция ошибок с нагрузкой
+
+## 8. АЛЕРТЫ И УВЕДОМЛЕНИЯ
+
+### 8.1 Настройка алертов в Grafana
+1. Alert Rules: Создание правил алертов
+2. Conditions: Условия срабатывания
+3. Notifications: Каналы уведомлений (Email, Slack, etc.)
+
+### 8.2 Примеры алертов
+```yaml
+# Высокий error rate
+WHEN: error_rate > 0.05 FOR: 5m
+MESSAGE: "Error rate превысил 5%"
+
+# Высокое время ответа
+WHEN: percentile(response_time, 95) > 2000 FOR: 3m
+MESSAGE: "95-й процентиль response time > 2s"
+
+# Высокое использование CPU
+WHEN: cpu_usage > 90 FOR: 10m
+MESSAGE: "CPU usage > 90%"
+```
+
+### 8.3 Prometheus Alertmanager (закомментирован в docker-compose т.к. не до этого пока)
+
+## 9. РАСШИРЕННЫЙ МОНИТОРИНГ
+
+### 9.1 Добавление кастомных метрик приложения
+Если тестируемое приложение поддерживает метрики:
+```yaml
+# Добавление в prometheus.yml
+scrape_configs:
+  - job_name: 'my-app'
+    static_configs:
+      - targets: ['my-app:8080']
+    metrics_path: /metrics
+```
+
+### 9.2 Мониторинг базы данных
+Для PostgreSQL/MySQL добавьте экспортеры:
+```yaml
+- job_name: 'postgres'
+  static_configs:
+    - targets: ['postgres-exporter:9187']
+```
+
+### 9.3 Распределенный мониторинг
+Для кластеров Kubernetes или нескольких серверов настройте service discovery.
+
+## 10. ОТЧЕТНОСТЬ И АНАЛИТИКА
+
+### 10.1 Генерация отчетов
+Проект включает скрипты для генерации отчетов: НО - это как экспериментальная модель - основные в Grafana
+```bash
+# HTML отчет
+python3 scripts/generate-html-report.py results/test-results.json
+
+# Сравнение результатов
+python3 scripts/compare-results.py results/baseline.json results/current.json
+```
+
+### 10.2 Экспорт дашбордов
+- PDF: Экспорт дашбордов Grafana в PDF
+- CSV: Экспорт данных метрик
+- API: Программный доступ к данным
+
+### 10.3 Исторический анализ
+- Сравнение результатов тестов со временем
+- Тренды производительности
+- Прогнозирование на основе исторических данных
+
+## 11. УСТРАНЕНИЕ НЕИСПРАВНОСТЕЙ
+
+### 11.1 Проблемы с метриками k6
+```bash
+# Проверка подключения к InfluxDB
+docker exec -it k6-dashboard curl http://influxdb:8086/health
+
+# Проверка записи метрик
+docker exec -it influxdb influx -execute "SHOW MEASUREMENTS"
+```
+
+### 11.2 Проблемы с Prometheus
+```bash
+# Проверка targets
+curl http://localhost:9090/api/v1/targets
+
+# Проверка метрик
+curl http://localhost:9090/api/v1/query?query=up
+```
+
+### 11.3 Проблемы с Grafana
+```bash
+# Проверка логов
+docker logs grafana
+
+# Проверка источников данных
+curl -u admin:admin http://localhost:3001/api/datasources
+```
+
+
+## 12. ИНТЕГРАЦИЯ С ДРУГИМИ ИНСТРУМЕНТАМИ
+
+### 12.1 CI/CD интеграция
+- GitLab CI: Автоматический запуск тестов
+- GitHub Actions: Интеграция с workflows
+- Jenkins: Пайплайны с нагрузочным тестированием
+
+### 12.2 Системы оповещений
+- Slack: Уведомления о результатах тестов
+- Email: Отчеты заинтересованным сторонам
+- PagerDuty: Критические алерты
+- Телега (возможно)
+
+### 12.3 Хранение и анализ
+- ELK Stack: Централизованное логирование
+- S3/Cloud Storage: Долгосрочное хранение результатов
+- BI инструменты: Аналитика производительности
+
+---
+
+Быстрый чек-лист настройки мониторинга:
+-  Docker Compose запущен
+-  Grafana доступна и показывает дашборд
+-  Prometheus собирает метрики
+-  Node Exporter работает
+-  k6 тесты выводят метрики в InfluxDB
+-  Дашборд обновляется в реальном времени
+
+Полезные команды для отладки:
+```bash
+# Статус всех сервисов
+docker-compose ps
+
+# Логи сервисов
+docker-compose logs prometheus
+docker-compose logs grafana
+
+# Проверка метрик
+curl http://localhost:9090/api/v1/query?query=up

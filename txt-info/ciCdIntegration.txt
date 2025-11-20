@@ -1,0 +1,259 @@
+# ИНТЕГРАЦИЯ В CI/CD
+
+
+СТРАТЕГИИ ИНТЕГРАЦИИ
+
+Уровни автоматизации
+
+####  Smoke Tests
+Цель: Быстрая проверка работоспособности
+
+```yaml
+# GitLab CI пример
+smoke_test:
+  stage: test
+  script:
+    - docker-compose up -d k6-dashboard
+    - docker exec k6-dashboard k6 run /scripts/tests/scenarios/smoke-test.js
+  only:
+    - merge_requests
+    - main
+```
+
+#### Load Tests
+Цель:Проверка базовой производительности
+
+```yaml
+load_test:
+  stage: performance
+  script:
+    - docker-compose up -d
+    - docker exec k6-dashboard k6 run --out json=/results/load-test.json /scripts/tests/scenarios/load-test.js
+  artifacts:
+    paths:
+      - results/load-test.json
+  only:
+    - main
+    - tags
+```
+
+####  Stress Tests
+Цель: Проверка пределов системы
+
+```yaml
+stress_test:
+  stage: performance
+  script:
+    - docker-compose up -d
+    - docker exec k6-dashboard k6 run --out json=/results/stress-test.json /scripts/tests/scenarios/stress-test.js
+  artifacts:
+    paths:
+      - results/stress-test.json
+  only:
+    - tags  # Только при создании тега релиза
+```
+
+###  Pipeline стратегии
+
+####  Sequential Pipeline (Последовательный)
+```
+Build → Unit Tests → Integration Tests → Smoke Tests → Deploy to Staging → Load Tests → Deploy to Prod
+```
+
+#### 2 Parallel Pipeline (Параллельный)
+```
+Build → Unit Tests
+       → Integration Tests
+       → Smoke Tests (fast)
+       → Load Tests (slow, separate job)
+```
+
+####  Conditional Pipeline (Условный)
+```yaml
+# Запуск нагрузочных тестов только если код изменился
+load_test:
+  stage: performance
+  script: ...
+  only:
+    changes:
+      - src/**  # Только при изменениях в коде
+      - tests/**  # Или в тестах
+```
+
+## НАСТРОЙКА CI/CD СИСТЕМ
+
+### GitLab CI/CD
+
+#### Базовая конфигурация (.gitlab-ci.yml)
+```yaml
+stages:
+  - build
+  - test
+  - performance
+  - deploy
+
+variables:
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: "/certs"
+
+# Кеширование Docker образов
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - .docker/
+
+# Smoke тест
+smoke_test:
+  stage: test
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker-compose up -d k6-dashboard
+    - docker exec $(docker-compose ps -q k6-dashboard) k6 run /scripts/tests/scenarios/smoke-test.js
+  only:
+    - merge_requests
+
+# Load тест с отчетами
+load_test:
+  stage: performance
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker-compose up -d
+    - docker exec $(docker-compose ps -q k6-dashboard) k6 run --out json=/results/load-test.json /scripts/tests/scenarios/load-test.js
+    - docker exec $(docker-compose ps -q k6-dashboard) python3 /scripts/scripts/generate-html-report.py /results/load-test.json
+  artifacts:
+    paths:
+      - results/
+    reports:
+      performance: results/load-test.json
+  only:
+    - main
+    - schedules  # Для регулярных запусков
+
+# Сравнение с baseline
+performance_comparison:
+  stage: performance
+  script:
+    - docker-compose up -d
+    - docker exec $(docker-compose ps -q k6-dashboard) k6 run --out json=/results/current.json /scripts/tests/scenarios/load-test.js
+    - python3 scripts/compare-results.py results/baseline.json results/current.json > comparison.txt
+  artifacts:
+    paths:
+      - comparison.txt
+  only:
+    - main
+```
+
+####  Переменные окружения
+```yaml
+variables:
+  # Конфигурация k6
+  K6_PROMETHEUS_REMOTE_URL: "http://prometheus:9090/api/v1/write"
+  K6_INFLUXDB_ORGANIZATION: "my-org"
+  K6_INFLUXDB_BUCKET: "k6"
+
+  # Тестовые среды
+  STAGING_URL: "https://api.staging.site.com"
+  PROD_URL: "https://api.prod.site.com"
+
+```
+
+#### Schedules (Регулярные запуски)
+```yaml
+# Еженедельные тесты производительности
+weekly_performance_test:
+  stage: performance
+  script:
+    - docker-compose up -d
+    - docker exec k6-dashboard k6 run --out json=/results/weekly-$(date +%Y%m%d).json /scripts/tests/scenarios/load-test.js
+  only:
+    schedules:
+      - "0 2 * * 1"  # Каждый понедельник в 2:00
+```
+
+###  GitHub Actions
+
+####  Workflow файл (.github/workflows/ci.yml)
+```yaml
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  smoke-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+
+    - name: Start services
+      run: docker-compose up -d
+
+    - name: Wait for services
+      run: |
+        docker-compose exec -T k6-dashboard sh -c 'while ! curl -f http://influxdb:8086/health; do sleep 1; done'
+
+    - name: Run smoke test
+      run: docker-compose exec -T k6-dashboard k6 run /scripts/tests/scenarios/smoke-test.js
+
+  load-test:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'  # Только на main ветке
+    needs: smoke-test
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Start full stack
+      run: docker-compose up -d
+
+    - name: Run load test
+      run: |
+        docker-compose exec -T k6-dashboard k6 run \
+          --out json=/results/load-test.json \
+          /scripts/tests/scenarios/load-test.js
+
+    - name: Upload results
+      uses: actions/upload-artifact@v3
+      with:
+        name: load-test-results
+        path: results/load-test.json
+
+    - name: Generate report
+      run: |
+        docker-compose exec -T k6-dashboard python3 \
+          /scripts/scripts/generate-html-report.py \
+          /results/load-test.json
+
+    - name: Upload report
+      uses: actions/upload-artifact@v3
+      with:
+        name: performance-report
+        path: results/report.html
+```
+
+####  Секреты и переменные
+```yaml
+# В Settings > Secrets and variables > Actions
+# Добавляем :
+# API_KEY
+# DATABASE_URL
+# INFLUXDB_TOKEN
+
+# Использование
+- name: Run test with secrets
+  run: |
+    docker-compose exec -T k6-dashboard k6 run \
+      -e API_KEY=${{ secrets.API_KEY }} \
+      -e DATABASE_URL=${{ secrets.DATABASE_URL }} \
+      /scripts/tests/scenarios/load-test.js
+```
+

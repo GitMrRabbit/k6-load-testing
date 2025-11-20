@@ -1,0 +1,339 @@
+# БЫСТРЫЙ СТАРТ ПРОЕКТА K6 LOAD TESTING
+
+## 1. ПРЕДВАРИТЕЛЬНЫЕ ТРЕБОВАНИЯ
+
+### 1.1 Необходимое ПО
+- Docker и Docker Compose:
+- Node.js (опционально):
+- Git:
+
+### 1.2 Проверка установки
+```bash
+# Docker
+docker --version
+docker-compose --version
+
+# Node.js (опционально)
+node --version
+npm --version
+
+# Git
+git --version
+```
+
+## 2. ЗАПУСК ПРОЕКТА
+
+### 2.1 Клонирование репозитория
+```bash
+git clone <repository-url>
+cd k6-load-testing
+```
+
+### 2.2 Запуск инфраструктуры
+```bash
+# Запуск всех сервисов (Prometheus, Grafana, InfluxDB, k6)
+docker-compose up -d
+
+# Проверка статуса
+docker-compose ps
+```
+
+### 2.3 Доступ к сервисам
+- Grafana: http://localhost:3001 (admin/admin)
+- Prometheus: http://localhost:9090
+- k6 Dashboard: Доступен через контейнер
+
+## 3. ПЕРВЫЕ ШАГИ
+
+### 3.1 Проверка работоспособности
+```bash
+# Подключение к k6 контейнеру
+docker exec -it k6-dashboard bash
+
+# Запуск smoke теста
+k6 run /scripts/tests/scenarios/smoke-test.js
+```
+
+### 3.2 Просмотр результатов в Grafana
+1. Откройте http://localhost:3001
+2. Войдите как admin/admin
+3. Перейдите в дашборд "K6 Load Testing Dashboard"
+4. Вы увидите метрики последнего теста (если нет перечитываем и перезапускаем)
+
+## 4. ЗАПУСК ОСНОВНЫХ ТЕСТОВ
+
+### 4.1 Smoke Test (быстрая проверка)
+```bash
+# Из хост системы
+docker exec -it k6-dashboard k6 run /scripts/tests/scenarios/smoke-test.js
+
+# Или из контейнера
+docker exec -it k6-dashboard bash
+k6 run /scripts/tests/scenarios/smoke-test.js
+```
+
+### 4.2 Load Test (тестирование стабильной нагрузки)
+```bash
+docker exec -it k6-dashboard k6 run /scripts/tests/scenarios/load-test.js
+```
+
+### 4.3 Stress Test (тестирование на прочность)
+```bash
+docker exec -it k6-dashboard k6 run /scripts/tests/scenarios/stress-test.js
+```
+
+### 4.4 Другие тесты
+```bash
+# Spike test
+docker exec -it k6-dashboard k6 run /scripts/tests/scenarios/spike-test.js
+
+# Soak test (длительный)
+docker exec -it k6-dashboard k6 run /scripts/tests/scenarios/soak-test.js
+
+# Volume test
+docker exec -it k6-dashboard k6 run /scripts/tests/scenarios/volume-test.js
+```
+
+## 5. МОНИТОРИНГ И АНАЛИЗ
+
+### 5.1 Просмотр метрик в реальном времени
+```bash
+# В контейнере k6
+k6 run --out influxdb=http://influxdb:8086/k6 /scripts/tests/scenarios/load-test.js
+```
+
+### 5.2 Анализ результатов в Grafana
+1. HTTP Request Rate: Количество запросов в секунду
+2. Response Time: Время ответа (среднее, 95-й, 99-й процентили)
+3. Error Rate: Процент ошибок
+4. Active Virtual Users: Количество активных VUS
+
+### 5.3 Просмотр логов
+```bash
+# Логи k6 контейнера
+docker logs k6-dashboard
+
+# Логи всех сервисов
+docker-compose logs
+```
+
+## 6. НАСТРОЙКА СРЕДЫ
+
+### 6.1 Конфигурационные файлы
+Проект поддерживает несколько сред:
+- `config/dev.js` - разработка
+- `config/staging.js` - staging
+- `config/production.js` - продакшн
+
+### 6.2 Переменные окружения
+```bash
+# Запуск с кастомными переменными
+docker exec -it k6-dashboard bash -c "export BASE_URL=https://my-api.com && k6 run /scripts/tests/scenarios/smoke-test.js"
+```
+
+### 6.3 Кастомные параметры
+```bash
+# Изменение количества VUS
+docker exec -it k6-dashboard k6 run --vus 50 --duration 2m /scripts/tests/scenarios/load-test.js
+
+# Кастомные stages
+docker exec -it k6-dashboard k6 run --stage 30s:10,1m:10,30s:0 /scripts/tests/scenarios/smoke-test.js
+```
+
+## 7. РАЗРАБОТКА НОВЫХ ТЕСТОВ
+
+### 7.1 Создание простого теста
+```bash
+# Создание нового файла теста
+docker exec -it k6-dashboard bash
+cat > /scripts/my-test.js << 'EOF'
+import http from 'k6/http';
+import { check } from 'k6';
+
+export const options = {
+    vus: 5,
+    duration: '30s',
+    thresholds: {
+        http_req_duration: ['p(95)<500'],
+        http_req_failed: ['rate<0.1']
+    }
+};
+
+export default function() {
+    const response = http.get('https://httpbin.org/get');
+    check(response, {
+        'status is 200': (r) => r.status === 200
+    });
+}
+EOF
+
+# Запуск нового теста
+k6 run /scripts/my-test.js
+```
+
+### 7.2 Использование вспомогательных функций
+```javascript
+// Импорт функций из проекта
+import { makeGetRequest, makePostRequest } from '/scripts/tests/libs/utils.js';
+import { ENV } from '/scripts/tests/libs/config.js';
+
+export default function() {
+    // Использование готовых функций
+    makeGetRequest(`${ENV.BASE_URL}/posts`, 'get_posts');
+    makePostRequest(`${ENV.BASE_URL}/posts`, { title: 'Test' }, 'create_post');
+}
+```
+
+## 8. ГЕНЕРАЦИЯ ОТЧЕТОВ (Напоминаю штука экспериментальная и ещё не настроена)
+
+### 8.1 HTML отчет
+```bash
+# Генерация HTML отчета
+docker exec -it k6-dashboard k6 run --out json=/results/report.json /scripts/tests/scenarios/load-test.js
+
+# Конвертация в HTML (если настроено)
+python3 /scripts/scripts/generate-html-report.py /results/report.json
+```
+
+### 8.2 Сравнение результатов
+```bash
+# Запуск скрипта сравнения
+python3 /scripts/scripts/compare-results.py /results/result1.json /results/result2.json
+```
+
+## 9. ИНТЕГРАЦИЯ В CI/CD
+
+### 9.1 GitLab CI
+Проект уже содержит `.gitlab-ci.yml`:
+```yaml
+stages:
+  - test
+  - report
+
+load_test:
+  stage: test
+  script:
+    - docker-compose up -d
+    - docker exec -it k6-dashboard k6 run /scripts/tests/scenarios/load-test.js
+  artifacts:
+    paths:
+      - results/
+    expire_in: 1 week
+```
+
+### 9.2 GitHub Actions
+Проект содержит `.github/workflows/ci.yml` - т.к.
+
+### 9.3 Локальный запуск CI
+```bash
+# Имитация CI пайплайна
+docker-compose up -d
+docker exec -it k6-dashboard k6 run --out json=/results/ci-test.json /scripts/tests/scenarios/smoke-test.js
+```
+
+## 10. УСТРАНЕНИЕ НЕИСПРАВНОСТЕЙ
+
+### 10.1 Проблемы с Docker
+```bash
+# Перезапуск сервисов
+docker-compose down
+docker-compose up -d
+
+# Очистка данных
+docker-compose down -v
+docker-compose up -d
+```
+
+### 10.2 Проблемы с тестами
+```bash
+# Проверка синтаксиса
+docker exec -it k6-dashboard k6 check /scripts/tests/scenarios/smoke-test.js
+
+# Запуск в verbose режиме
+docker exec -it k6-dashboard k6 run --verbose /scripts/tests/scenarios/smoke-test.js
+```
+
+### 10.3 Проблемы с метриками
+```bash
+# Проверка InfluxDB
+curl http://localhost:8086/health
+
+# Проверка Prometheus
+curl http://localhost:9090/-/healthy
+
+# Просмотр логов Grafana
+docker logs grafana
+```
+
+## 11. ПРОД ИСПОЛЬЗОВАНИЕ
+
+### 11.1 Масштабирование
+```bash
+# Запуск нескольких инстансов k6
+docker-compose up --scale k6-dashboard=3 -d
+
+# Использование k6 Cloud
+k6 run --out cloud /scripts/tests/scenarios/load-test.js
+```
+
+### 11.2 Мониторинг продакшена
+- Настройте алерты в Prometheus
+- Используйте Grafana для дашбордов
+- Интегрируйте с системами оповещений
+
+## 12. ПОЛЕЗНЫЕ КОМАНДЫ
+
+### 12.1 Управление проектом
+```bash
+# Остановка всех сервисов
+docker-compose down
+
+# Очистка всех данных
+docker-compose down -v
+
+# Просмотр логов в реальном времени
+docker-compose logs -f
+
+# Обновление образов
+docker-compose pull
+```
+
+### 12.2 Работа с тестами
+```bash
+# Список доступных тестов
+find tests/scenarios -name "*.js"
+
+# Проверка всех тестов на синтаксис
+for test in tests/scenarios/*.js; do
+    echo "Checking $test"
+    docker exec -it k6-dashboard k6 check "/scripts/$test"
+done
+```
+
+### 12.3 Резервное копирование
+```bash
+# Резервное копирование результатов
+docker run --rm -v k6-load-testing-2_results:/data -v $(pwd):/backup alpine tar czf /backup/results-backup.tar.gz -C /data .
+
+# Резервное копирование конфигурации Grafana
+docker run --rm -v k6-load-testing-2_grafana_data:/data -v $(pwd):/backup alpine tar czf /backup/grafana-backup.tar.gz -C /data .
+```
+
+## 13. СЛЕДУЮЩИЕ ШАГИ
+
+1. Изучите документацию: Прочитайте другие .txt файлы в корне
+2. Создайте свой тест: На основе примеров в `tests/scenarios/`
+3. Настройте мониторинг: Добавьте свои метрики и дашборды
+4. Интегрируйте в CI/CD: е
+5. Оптимизируйте: Улучшите производительность на основе результатов
+
+---
+
+Быстрый чек-лист для старта:
+-  Docker установлен
+-  Репозиторий клонирован
+-  `docker-compose up -d` выполнен
+-  Grafana доступна на localhost:3001
+-  Smoke тест прошел успешно
+-  Load тест выполнен и метрики видны в Grafana
+

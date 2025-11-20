@@ -1,0 +1,18 @@
+# === GRAFANA DASHBOARD PROVISIONING CONFIGURATION ===
+# Этот файл настраивает автоматическую загрузку дашбордов в Grafana
+# Дашборды автоматически появляются в интерфейсе без ручной настройки
+
+# Версия API конфигурации Grafana
+apiVersion: 1
+
+# Секция определения провайдеров дашбордов
+providers:
+  # === ПРОВАЙДЕР ФАЙЛОВЫХ ДАШБОРДОВ K6 ===
+  - name: 'k6-dashboard'              # Уникальное имя провайдера для идентификации
+    type: file                        # Тип провайдера: file - загрузка из файлов
+    disableDeletion: false            # Разрешить удаление дашбордов через UI/API
+    updateIntervalSeconds: 10         # Интервал проверки обновлений (10 секунд)
+    allowUiUpdates: true              # Разрешить изменения дашбордов через веб-интерфейс
+    options:
+      # Путь к директории с файлами дашбордов (JSON файлы)
+      path: /etc/grafana/provisioning/dashboards

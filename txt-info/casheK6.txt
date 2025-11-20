@@ -1,0 +1,49 @@
+КЕШИРОВАНИЕ В ПРОЕКТЕ K6 LOAD TESTING
+
+В этом проекте k6 используется кеширование в тестах. Вот где и как оно работает:
+
+## 1. StateManager (tests/libs/state-manager.js)
+
+- Кэш общего состояния: this.sharedState = new Map() - хранит данные между виртуальными пользователями
+- Кэш запросов: this.requestCache = new Map() - кэширует результаты HTTP запросов
+- TTL (Time To Live): this.cacheTTL = 30000 - время жизни кэша по умолчанию (30 секунд)
+
+Методы кэширования:
+- set(key, value, ttl) - сохраняет значение с временем жизни
+- get(key) - получает значение, автоматически удаляя просроченные
+- cleanupExpired() - очищает устаревшие данные
+
+## 2. SharedArray (встроенный механизм k6)
+
+Используется в нескольких местах для загрузки данных один раз и совместного использования между VU:
+
+### В tests/scenarios/data-driven-test.js:
+```javascript
+const usersData = new SharedArray('users data', function() {
+    return papaparse.parse(open('../data/users.csv'), { header: true }).data;
+});
+```
+
+### В tests/libs/parameterization.js:
+```javascript
+const data = new SharedArray(name, function() {
+    return papaparse.parse(open(filePath), { header: true }).data;
+});
+// или для JSON:
+const data = new SharedArray(name, function() {
+    return JSON.parse(open(filePath));
+});
+```
+
+## Как работает кеширование:
+
+1. SharedArray: Данные загружаются один раз при инициализации теста и становятся доступны всем виртуальным пользователям. Это предотвращает многократную загрузку одних и тех же данных.
+
+2. StateManager
+   - Позволяет обмениваться данными между VU
+   - Автоматически очищает просроченные данные
+   - Реализует распределенные блокировки для синхронизации
+
+3. Распределенные блокировки: acquireLock() и releaseLock() предотвращают race conditions при одновременном доступе к общим ресурсам.
+
+Это обеспечивает эффективное использование памяти и предотвращает повторные загрузки данных, что особенно важно при большом количестве виртуальных пользователей.

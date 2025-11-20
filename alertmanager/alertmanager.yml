@@ -1,0 +1,26 @@
+# alertmanager/alertmanager.yml
+global:
+#  smtp_smarthost: 'localhost:1025'
+#  smtp_from: 'k6-alerts@company.com'
+
+route:
+  group_by: ['alertname']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  receiver: 'null-receiver'  # Изменить на slack-notifications - когда дойдут руки
+
+receivers:
+  - name: 'null-receiver' # тоже
+#    slack_configs:
+#      - channel: '#k6-alerts'
+#        text: '{{ range .Alerts }}{{ .Annotations.description }}\n{{ end }}'
+#        title: 'K6 Performance Alert'
+#        title_link: 'http://localhost:3001'
+
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname'] # -- none

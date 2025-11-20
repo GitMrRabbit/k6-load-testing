@@ -1,0 +1,194 @@
+# ПОДРОБНЫЙ РАЗБОР ФАЙЛА package.json
+# Документация по конфигурации проекта k6 Load Testing Suite
+
+## ОБЩАЯ ИНФОРМАЦИЯ О ФАЙЛЕ
+
+## СТРУКТУРА ФАЙЛА
+
+### 1. МЕТАДАННЫЕ ПРОЕКТА
+
+```json
+{
+  "name": "k6-load-testing",
+  "version": "1.0.0",
+  "description": "Advanced k6 load testing suite with monitoring and reporting",
+  "main": "index.js",
+  "private": true
+}
+```
+
+### 2. СКРИПТЫ (scripts)
+
+Раздел scripts содержит команды для автоматизации различных задач разработки и тестирования.
+
+#### ТЕСТИРОВАНИЕ КОДА
+```json
+"test": "jest",                            // Запуск всех unit тестов
+"test:watch": "jest --watch",              // Тесты в режиме наблюдения
+"test:coverage": "jest --coverage",        // Тесты с отчетом о покрытии
+```
+
+#### ВАЛИДАЦИЯ КОНФИГУРАЦИИ
+```json
+"validate": "node config/validation.js",   // Проверка конфигурационных файлов
+```
+
+#### ЗАПУСК НАГРУЗОЧНЫХ ТЕСТОВ В DOCKER
+Все команды выполняются внутри Docker контейнера k6-dashboard:
+```json
+"smoke": "docker exec k6-load-testing-k6-dashboard-1 k6 run --out influxdb=http://influxdb:8086/k6 /scripts/scenarios/smoke-test.js",
+"load": "docker exec k6-load-testing-k6-dashboard-1 k6 run --out influxdb=http://influxdb:8086/k6 /scripts/scenarios/load-test.js",
+"stress": "docker exec k6-load-testing-k6-dashboard-1 k6 run --out influxdb=http://influxdb:8086/k6 /scripts/scenarios/stress-test.js",
+"volume": "docker exec k6-load-testing-k6-dashboard-1 k6 run --out influxdb=http://influxdb:8086/k6 /scripts/scenarios/volume-test.js",
+"soak": "docker exec k6-load-testing-k6-dashboard-1 k6 run --out influxdb=http://influxdb:8086/k6 /scripts/scenarios/soak-test.js",
+```
+
+Общий формат команд:
+- `docker exec [container_name]`: Выполнение команды внутри Docker контейнера
+- `k6 run`: Запуск теста k6
+- `--out influxdb=http://influxdb:8086/k6`: Отправка метрик в InfluxDB
+- `/scripts/scenarios/[test-name].js`: Путь к тестовому сценарию внутри контейнера
+
+#### СПЕЦИАЛИЗИРОВАННЫЕ ТИПЫ ТЕСТОВ
+```json
+"chaos": "docker exec k6-load-testing-k6-dashboard-1 k6 run --out influxdb=http://influxdb:8086/k6 /scripts/scenarios/chaos-engineering-test.js",
+"canary": "docker exec k6-load-testing-k6-dashboard-1 k6 run --out influxdb=http://influxdb:8086/k6 /scripts/scenarios/canary-test.js",
+"security": "docker exec k6-load-testing-k6-dashboard-1 k6 run --out influxdb=http://influxdb:8086/k6 /scripts/scenarios/security-load-test.js",
+"adaptive": "docker exec k6-load-testing-k6-dashboard-1 k6 run --out influxdb=http://influxdb:8086/k6 /scripts/scenarios/adaptive-load-test.js",
+```
+
+#### КОМПЛЕКСНЫЕ КОМАНДЫ
+```json
+"all-tests": "powershell -ExecutionPolicy Bypass -File ./scripts/run-all-tests.ps1",
+```
+Запуск всех тестов последовательно через PowerShell скрипт.
+
+#### ОТЧЕТНОСТЬ
+```json
+"report": "python scripts/generate-html-report.py results/",
+```
+Генерация HTML отчета из результатов тестирования в папке results/.
+
+#### КОНТРОЛЬ КАЧЕСТВА КОДА
+```json
+"lint": "eslint tests/ config/ scripts/",
+```
+Проверка кода линтером ESLint в указанных директориях.
+
+#### УПРАВЛЕНИЕ DOCKER ИНФРАСТРУКТУРОЙ
+```json
+"docker:up": "docker-compose up -d",        // Запуск всех сервисов в фоне
+"docker:down": "docker-compose down",      // Остановка всех сервисов
+"monitoring": "docker-compose -f docker-compose.yml up -d prometheus grafana influxdb",
+```
+Управление Docker Compose сервисами.
+
+#### ЛОКАЛЬНЫЙ ЗАПУСК ТЕСТОВ
+```json
+"local:smoke": "k6 run --out influxdb=http://localhost:8086/k6 tests/scenarios/smoke-test.js",
+"local:load": "k6 run --out influxdb=http://localhost:8086/k6 tests/scenarios/load-test.js",
+"local:stress": "k6 run --out influxdb=http://localhost:8086/k6 tests/scenarios/stress-test.js",
+```
+Запуск тестов локально (требует установленного k6 и запущенной инфраструктуры).
+
+#### ДИАГНОСТИКА INFLUXDB
+```json
+"influx:status": "powershell -Command \"try { $response = Invoke-WebRequest -Uri 'http://localhost:8086/ping' -UseBasicParsing; Write-Host 'InfluxDB is running' } catch { Write-Host 'InfluxDB is not accessible' }\"",
+"influx:databases": "powershell -Command \"try { $response = Invoke-WebRequest -Uri 'http://localhost:8086/query?q=SHOW DATABASES' -UseBasicParsing; $response.Content } catch { Write-Host 'Cannot connect to InfluxDB' }\"",
+"influx:measurements": "powershell -Command \"try { $response = Invoke-WebRequest -Uri 'http://localhost:8086/query?db=k6&q=SHOW MEASUREMENTS' -UseBasicParsing; $response.Content } catch { Write-Host 'Cannot connect to InfluxDB or no measurements' }\"",
+```
+
+Команды для проверки состояния InfluxDB:
+- status: Проверка доступности сервера
+- databases: Показать список баз данных
+- measurements: Показать измерения в БД k6
+
+#### МОНИТОРИНГ ЗДОРОВЬЯ СИСТЕМЫ
+```json
+"check": "powershell -ExecutionPolicy Bypass -File ./check-services.ps1",
+"health": "powershell -ExecutionPolicy Bypass -File ./check-services.ps1"
+```
+Проверка статуса всех сервисов инфраструктуры.
+
+### 3. КОНФИГУРАЦИЯ JEST (jest)
+
+```json
+{
+  "testEnvironment": "node",
+  "testMatch": [
+    "**/__tests__/**/*.js",
+    "**/?(*.)+(spec|test).js"
+  ],
+  "collectCoverageFrom": [
+    "tests/libs/**/*.js",
+    "config/**/*.js",
+    "!tests/scenarios/**"
+  ],
+  "coverageThreshold": {
+    "global": {
+      "branches": 70,
+      "functions": 80,
+      "lines": 80,
+      "statements": 80
+    }
+  }
+}
+```
+
+
+### 4. ЗАВИСИМОСТИ ДЛЯ РАЗРАБОТКИ (devDependencies)
+
+```json
+{
+  "@eslint/js": "^8.0.0",                    // Конфигурация ESLint для JavaScript
+  "eslint": "^8.0.0",                       // Линтер для JavaScript кода
+  "jest": "^29.0.0",                        // Фреймворк для unit тестирования
+  "supertest": "^6.0.0"                     // Библиотека для тестирования HTTP API
+}
+```
+
+### 5. ПРОДАКШЕН ЗАВИСИМОСТИ (dependencies)
+
+```json
+{
+  "k6": "^0.0.0"                            // k6 - основной инструмент нагрузочного тестирования
+}
+```
+
+### 6. ТРЕБОВАНИЯ К СРЕДЕ ВЫПОЛНЕНИЯ (engines)
+
+```json
+{
+  "node": ">=18.0.0"                        // Минимальная версия Node.js 18.0.0
+}
+```
+
+## ИСПОЛЬЗОВАНИЕ СКРИПТОВ
+
+### Базовые команды:
+```bash
+npm install          # Установка всех зависимостей
+npm run validate     # Валидация конфигурации
+npm test            # Запуск unit тестов
+npm run lint        # Проверка кода линтером
+```
+
+### Запуск тестов:
+```bash
+npm run smoke       # Быстрые smoke тесты
+npm run load        # Нагрузочные тесты
+npm run stress      # Стресс тесты (ручной запуск)
+npm run all-tests   # Все тесты последовательно
+```
+
+### Управление инфраструктурой:
+```bash
+npm run docker:up   # Запуск всех сервисов
+npm run monitoring  # Запуск только мониторинга
+npm run check       # Проверка здоровья сервисов
+```
+
+### Отчетность:
+```bash
+npm run report      # Генерация HTML отчета
+```

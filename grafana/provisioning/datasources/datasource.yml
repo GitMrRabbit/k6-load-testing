@@ -1,0 +1,59 @@
+﻿# === GRAFANA DATASOURCE CONFIGURATION ===
+# Этот файл настраивает источники данных для Grafana
+# Автоматически применяется при запуске контейнера через provisioning
+
+# Версия API конфигурации Grafana
+apiVersion: 1
+
+# Секция определения источников данных
+datasources:
+  # === INFLUXDB - ИСТОЧНИК ДАННЫХ ДЛЯ МЕТРИК K6 ===
+  - name: InfluxDB                    # Отображаемое имя в интерфейсе Grafana
+    type: influxdb                    # Тип базы данных - InfluxDB
+    access: proxy                     # Режим доступа: proxy - запросы через Grafana
+    url: http://influxdb:8086         # URL InfluxDB сервера (имя сервиса из docker-compose)
+    database: k6                      # Название базы данных в InfluxDB
+    isDefault: true                   # Сделать источником данных по умолчанию
+    jsonData:
+      # Режим HTTP запросов: GET - для совместимости со старыми версиями InfluxDB
+      # GET рекомендуется для InfluxDB 1.x, POST для 2.x
+      httpMode: GET
+      
+      # Дополнительные параметры (закомментированы, но доступны при необходимости):
+      # httpHeaderName1: "Authorization"
+      # httpHeaderValue1: "Bearer your-token"
+      # timeInterval: ">10s"           # Интервал агрегации по умолчанию
+      # queryTimeout: "30s"            # Таймаут запросов
+      # maxSeries: 1000                # Максимальное количество серий
+
+  # === PROMETHEUS - ИСТОЧНИК ДАННЫХ ДЛЯ СИСТЕМНЫХ МЕТРИК ===
+  # Раскомментируйте для добавления Prometheus как дополнительного источника:
+  # - name: Prometheus
+  #   type: prometheus
+  #   access: proxy
+  #   url: http://prometheus:9090
+  #   isDefault: false
+  #   jsonData:
+  #     timeInterval: "15s"
+  #     queryTimeout: "60s"
+  #     httpMethod: "POST"
+
+# === ОПИСАНИЕ НАЗНАЧЕНИЯ ===
+# Этот конфигурационный файл:
+# 1. Автоматически настраивает подключение к InfluxDB при запуске Grafana
+# 2. Обеспечивает визуализацию метрик из k6 тестов в дашбордах Grafana
+# 3. Использует именование сервисов Docker Compose для сетевого взаимодействия
+# 4. Настраивает InfluxDB как источник данных по умолчанию для удобства
+
+# === КАК РАБОТАЕТ ===
+# 1. Grafana загружает эту конфигурацию при старте
+# 2. Создается подключение к InfluxDB по указанному URL
+# 3. k6 отправляет метрики в InfluxDB (порт 8086)
+# 4. Grafana читает метрики из InfluxDB и отображает в дашбордах
+# 5. Все дашборды используют эту базу данных для получения данных тестов
+
+# === ВАЖНЫЕ ЗАМЕЧАНИЯ ===
+# - InfluxDB 1.8 использует аутентификацию через query параметры
+# - Для InfluxDB 2.x потребуется изменить httpMode на POST и добавить токен
+# - URL использует docker-compose service name, поэтому работает внутри сети Docker
+# - При изменении конфигурации требуется перезагрузка Grafana

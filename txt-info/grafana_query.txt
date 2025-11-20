@@ -1,0 +1,11 @@
+Пример запросов для панелей:
+1. Количество запросов в секунду:
+SELECT COUNT("value") FROM "http_reqs" WHERE $timeFilter GROUP BY time(1s)
+2. Среднее время ответа:
+SELECT MEAN("duration") FROM "http_req_duration" WHERE $timeFilter GROUP BY time(1s)
+3. 95-й перцентиль времени ответа:
+SELECT PERCENTILE("duration", 95) FROM "http_req_duration" WHERE $timeFilter GROUP BY time(1s)
+4. Количество виртуальных пользователей:
+SELECT LAST("value") FROM "vus" WHERE $timeFilter
+5. Количество ошибок:
+SELECT COUNT("value") FROM "http_req_failed" WHERE $timeFilter GROUP BY time(1s)

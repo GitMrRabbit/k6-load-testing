@@ -1,0 +1,185 @@
+# GitHub Actions CI/CD пайплайн для автоматизации нагрузочного тестирования k6
+# Этот файл определяет этапы сборки, тестирования и развертывания проекта
+
+# === ЭТАПЫ ПАЙПЛАЙНА ===
+stages:
+  - validate    # Валидация конфигурации и кода
+  - test        # Выполнение различных типов нагрузочных тестов
+  - report      # Генерация отчетов и анализ результатов
+  - deploy      # Развертывание инфраструктуры и очистка
+
+# === ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ===
+variables:
+  # Настройки Docker для оптимизации производительности
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: "/certs"
+  # Версия k6 для всех тестовых джобов
+  K6_VERSION: "0.45.0"
+  # Настройки кеширования для ускорения сборки
+  DOCKER_BUILDKIT: 1
+  BUILDKIT_PROGRESS: plain
+  # Параллельное выполнение тестов
+  PARALLEL_JOBS: 3
+
+# === ВАЛИДАЦИЯ КОНФИГУРАЦИИ ===
+validate_config:
+  # Этап выполнения
+  stage: validate
+  # Docker образ с Node.js для выполнения JavaScript кода
+  image: node:18-alpine
+  # Подготовительные команды перед выполнением скрипта
+  before_script:
+    - apk add --no-cache git  # Установка git для доступа к репозиторию
+    - npm install -g ajv-cli  # Установка JSON Schema валидатора
+  script:
+    - node config/validation.js  # Запуск валидации конфигурационных файлов
+    - echo "Конфигурация валидна"  # Вывод сообщения об успешной валидации
+  # Запуск только для указанных веток и merge requests
+  only:
+    - merge_requests  # Для проверки изменений перед слиянием
+    - main           # Основная
+    - develop
+
+# === SMOKE ТЕСТЫ (БЫСТРАЯ ПРОВЕРКА БАЗОВОЙ ФУНКЦИОНАЛЬНОСТИ) ===
+smoke_test:
+  stage: test
+  # Использование официального образа k6
+  image:
+    name: grafana/k6:${K6_VERSION}
+    entrypoint: ['']  # Переопределение entrypoint для выполнения команд
+  script:
+    # Запуск smoke тестов с выводом результатов в JSON файл
+    - k6 run --out json=results/smoke-${CI_COMMIT_SHORT_SHA}.json tests/scenarios/smoke-test.js
+  artifacts:
+    reports:
+      # Сохранение результатов как JUnit отчета для GitLab
+      junit: results/smoke-${CI_COMMIT_SHORT_SHA}.json
+    expire_in: 1 week  # Хранение артефактов 1 неделю
+  # Запуск для всех проверяемых изменений
+  only:
+    - merge_requests
+    - main
+    - develop
+
+# === LOAD ТЕСТЫ (НАГРУЗОЧНОЕ ТЕСТИРОВАНИЕ) ===
+load_test:
+  stage: test
+  image:
+    name: grafana/k6:${K6_VERSION}
+    entrypoint: ['']
+  script:
+    # Запуск load тестов с сохранением результатов
+    - k6 run --out json=results/load-${CI_COMMIT_SHORT_SHA}.json tests/scenarios/load-test.js
+  artifacts:
+    reports:
+      junit: results/load-${CI_COMMIT_SHORT_SHA}.json
+    expire_in: 1 week
+  # Запуск только для основных веток (не для каждого MR)
+  only:
+    - main
+    - develop
+
+# === STRESS ТЕСТЫ (ПРЕДЕЛЬНАЯ НАГРУЗКА) ===
+stress_test:
+  stage: test
+  image:
+    name: grafana/k6:${K6_VERSION}
+    entrypoint: ['']
+  script:
+    # Запуск stress тестов для проверки пределов системы
+    - k6 run --out json=results/stress-${CI_COMMIT_SHORT_SHA}.json tests/scenarios/stress-test.js
+  artifacts:
+    reports:
+      junit: results/stress-${CI_COMMIT_SHORT_SHA}.json
+    expire_in: 1 week
+  only:
+    - main
+    - develop
+  when: manual  # Ручной запуск из-за высокой нагрузки на систему
+
+# === VOLUME ТЕСТЫ (ТЕСТИРОВАНИЕ ОБЪЕМА ДАННЫХ) ===
+volume_test:
+  stage: test
+  image:
+    name: grafana/k6:${K6_VERSION}
+    entrypoint: ['']
+  script:
+    # Запуск тестов с большими объемами данных
+    - k6 run --out json=results/volume-${CI_COMMIT_SHORT_SHA}.json tests/scenarios/volume-test.js
+  artifacts:
+    reports:
+      junit: results/volume-${CI_COMMIT_SHORT_SHA}.json
+    expire_in: 1 week
+  only:
+    - main
+    - develop
+  when: manual  # Ручной запуск из-за длительности выполнения
+
+# === ГЕНЕРАЦИЯ ОТЧЕТОВ ===
+generate_report:
+  stage: report
+  # Python образ для генерации отчетов
+  image: python:3.9-alpine
+  before_script:
+    - apk add --no-cache git  # Для доступа к репозиторию
+    - pip install pandas matplotlib plotly  # Установка зависимостей для отчетов
+  script:
+    - mkdir -p results  # Создание директории для результатов
+    - python scripts/generate-report.py results/      # Генерация сводного отчета
+    - python scripts/generate-html-report.py results/  # Генерация HTML отчета
+  dependencies:
+    # Зависимости от предыдущих тестовых джобов
+    - smoke_test
+    - load_test
+  artifacts:
+    paths:
+      - results/  # Сохранение всех результатов и отчетов
+    expire_in: 1 month  # Длительное хранение отчетов
+  only:
+    - main
+    - develop
+
+# === РАЗВЕРТЫВАНИЕ ИНФРАСТРУКТУРЫ МОНИТОРИНГА ===
+deploy_monitoring:
+  stage: deploy
+  # Docker-in-Docker для сборки образов
+  image: docker:latest
+  services:
+    - docker:dind  # Docker daemon в контейнере
+  script:
+    # Сборка и публикация образа мониторинга
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker build -t $CI_REGISTRY_IMAGE/monitoring:latest -f docker/monitoring.Dockerfile .
+    - docker push $CI_REGISTRY_IMAGE/monitoring:latest
+  only:
+    - main  # Только для основной ветки
+  when: manual  # Ручной запуск для контроля развертывания
+
+# === УВЕДОМЛЕНИЯ В SLACK ===
+# Закомментировано - требуется настройка Slack webhook
+# notify_slack:
+#   stage: report
+#   image: curlimages/curl:latest
+#   script:
+#     - |
+#       if [ "$CI_JOB_STATUS" == "success" ]; then
+#         MESSAGE="Yepp)) Load tests passed successfully\nPipeline: $CI_PIPELINE_URL\nResults: $CI_PROJECT_URL/-/jobs/$CI_JOB_ID/artifacts/browse"
+#       else
+#         MESSAGE="Fuck... Load tests failed\nPipeline: $CI_PIPELINE_URL\nCheck logs: $CI_JOB_URL"
+#       fi
+#       curl -X POST -H 'Content-type: application/json' --data "{\"text\":\"$MESSAGE\"}" $SLACK_WEBHOOK_URL
+#   when: always  # Отправка уведомлений всегда (успех/неудача)
+#   only:
+#     - main
+#     - develop
+
+# === ОЧИСТКА СТАРЫХ АРТЕФАКТОВ ===
+cleanup:
+  stage: deploy
+  image: alpine:latest  # Минимальный образ для выполнения команд
+  script:
+    - echo "Cleaning up old artifacts..."
+    - find results/ -name "*.json" -mtime +30 -delete 2>/dev/null || true  # Удаление файлов старше 30 дней
+  when: manual  # Ручной запуск для контроля
+  only:
+    - main  # Только для основной ветки

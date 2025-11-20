@@ -1,0 +1,598 @@
+# РУКОВОДСТВО ПО СОЗДАНИЮ КАСТОМНЫХ МЕТРИК В K6
+
+## 1. ОСНОВЫ МЕТРИК В K6
+
+### 1.1 Типы встроенных метрик k6
+- http_req_duration: Время выполнения HTTP запросов
+- http_req_failed: Количество неудачных запросов
+- vus: Текущее количество виртуальных пользователей
+- iterations: Общее количество выполненных итераций
+
+## 2. ТИПЫ КАСТОМНЫХ МЕТРИК В K6
+
+### 2.1 Counter (Счетчик)
+Назначение: Подсчет количества событий (увеличивается только)
+Примеры использования:
+- Количество успешных регистраций
+- Количество отправленных email
+- Количество ошибок определенного типа
+
+```javascript
+import { Counter } from 'k6/metrics';
+
+export const registrationCount = new Counter('user_registrations');
+export const emailSentCount = new Counter('emails_sent');
+export const errorCount = new Counter('errors');
+```
+
+Как использовать:
+```javascript
+// Увеличение счетчика
+registrationCount.add(1);
+
+// Увеличение с тегами
+registrationCount.add(1, { method: 'email', source: 'landing_page' });
+
+// Увеличение на произвольное значение
+emailSentCount.add(5);
+```
+
+### 2.2 Gauge (Датчик)
+Назначение: Текущее значение метрики (может увеличиваться и уменьшаться)
+Примеры использования:*
+- Количество активных пользователей онлайн
+- Использование памяти
+- Температура сервера
+- Количество активных соединений
+
+```javascript
+import { Gauge } from 'k6/metrics';
+
+export const activeUsers = new Gauge('active_users');
+export const memoryUsage = new Gauge('memory_usage');
+export const cpuUsage = new Gauge('cpu_usage');
+export const networkConnections = new Gauge('network_connections');
+```
+
+Как использовать:
+```javascript
+// Установка значения
+activeUsers.add(150);
+
+// Установка с тегами
+memoryUsage.add(85.5, { server: 'web-01' });
+
+// Обновление значения (замена предыдущего)
+cpuUsage.add(67.2);
+```
+
+### 2.3 Rate (Скорость/Процент)
+Назначение: Доля успешных событий от общего количества
+Примеры использования:
+- Процент успешных запросов
+- Конверсия пользователей
+- Процент ошибок
+
+```javascript
+import { Rate } from 'k6/metrics';
+
+export const successRate = new Rate('success_rate');
+export const conversionRate = new Rate('conversion_rate');
+export const errorRate = new Rate('error_rate');
+```
+
+Как использовать:
+```javascript
+// Добавление успешного события
+successRate.add(true);
+
+// Добавление неудачного события
+successRate.add(false);
+
+// С тегами
+conversionRate.add(true, { funnel_step: 'registration' });
+```
+
+### 2.4 Trend (Тренд)
+Назначение: Статистические данные о значениях (среднее, процентили, min/max)
+Примеры использования:
+- Время ответа API
+- Размер ответов
+- Время загрузки страниц
+
+```javascript
+import { Trend } from 'k6/metrics';
+
+export const responseTime = new Trend('response_time');
+export const pageLoadTime = new Trend('page_load_time');
+export const dataTransferSize = new Trend('data_transfer_size');
+```
+
+Как использовать:
+```javascript
+// Добавление значения
+responseTime.add(1250); // 1250 мс
+
+// С тегами для группировки
+responseTime.add(850, { endpoint: 'api/users', method: 'GET' });
+```
+
+## 3. ПРАКТИЧЕСКИЕ ПРИМЕРЫ ИЗ ПРОЕКТА
+
+### 3.1 Метрики из utils.js
+
+```javascript
+// Кастомные метрики для мониторинга производительности
+export const requestDuration = new Trend('request_duration', true); // Время выполнения запросов
+export const errorCount = new Counter('errors');                   // Счетчик ошибок
+export const successRate = new Rate('success_rate');               // Процент успешных запросов
+export const activeUsers = new Gauge('active_users');              // Количество активных пользователей
+
+// Дополнительные метрики для детального мониторинга
+export const responseTimeTrend = new Trend('response_time');       // Тренд времени ответа
+export const throughputRate = new Rate('throughput');              // Пропускная способность
+export const errorRate = new Rate('error_rate');                   // Процент ошибок
+export const memoryUsage = new Gauge('memory_usage');              // Использование памяти
+export const cpuUsage = new Gauge('cpu_usage');                    // Использование CPU
+```
+
+### 3.2 Использование в функциях
+
+```javascript
+export function makeGetRequest(url, tag) {
+    const start = Date.now();
+    const response = http.get(url);
+    const duration = Date.now() - start;
+
+    // Обновление метрик
+    activeUsers.add(1);
+    requestDuration.add(duration, { endpoint: tag });
+    responseTimeTrend.add(response.timings.duration);
+    throughputRate.add(1);
+
+    const isSuccess = check(response, {
+        [`${tag} status is 200`]: (r) => r.status === 200,
+        [`${tag} response time < 2s`]: (r) => r.timings.duration < 2000
+    });
+
+    if (isSuccess) {
+        successRate.add(true, { endpoint: tag });
+        errorRate.add(false);
+    } else {
+        successRate.add(false, { endpoint: tag });
+        errorCount.add(1, { endpoint: tag });
+        errorRate.add(true);
+    }
+
+    return response;
+}
+```
+
+## 4. БИЗНЕС-МЕТРИКИ
+
+### 4.1 Метрики конверсии и пользовательского поведения
+
+```javascript
+// Метрики электронной коммерции
+export const productViews = new Counter('product_views');
+export const addToCartCount = new Counter('add_to_cart');
+export const purchasesCount = new Counter('purchases');
+export const cartAbandonmentRate = new Rate('cart_abandonment_rate');
+
+// Метрики пользовательского вовлечения
+export const userSessions = new Counter('user_sessions');
+export const pageViews = new Counter('page_views');
+export const timeOnPage = new Trend('time_on_page');
+export const bounceRate = new Rate('bounce_rate');
+
+// Метрики качества обслуживания
+export const customerSatisfaction = new Gauge('customer_satisfaction');
+export const supportTickets = new Counter('support_tickets');
+export const resolutionTime = new Trend('ticket_resolution_time');
+```
+
+Пример использования:
+```javascript
+// В сценарии тестирования интернет-магазина
+export default function() {
+    // Просмотр товара
+    productViews.add(1, { category: 'electronics', product_id: '123' });
+
+    // Добавление в корзину
+    addToCartCount.add(1, { product_id: '123', user_type: 'new' });
+
+    // Покупка
+    purchasesCount.add(1, { amount: 99.99, payment_method: 'credit_card' });
+
+    // Измерение времени на странице
+    const pageStart = Date.now();
+    // ... действия на странице ...
+    timeOnPage.add(Date.now() - pageStart, { page: 'product_detail' });
+}
+```
+
+### 4.2 Метрики производительности по пропускной способности
+
+```javascript
+// Метрики пропускной способности
+export const requestsPerSecond = new Rate('requests_per_second');
+export const dataThroughput = new Trend('data_throughput_bytes');
+export const concurrentUsers = new Gauge('concurrent_users');
+export const queueLength = new Gauge('queue_length');
+
+// Метрики эффективности
+export const cacheHitRate = new Rate('cache_hit_rate');
+export const databaseQueryTime = new Trend('db_query_time');
+export const apiResponseTime = new Trend('api_response_time');
+```
+
+Пример использования:
+```javascript
+export default function() {
+    const startTime = Date.now();
+
+    // Измерение пропускной способности
+    const response = http.get('https://api.testsite.com/data');
+    const dataSize = response.body ? response.body.length : 0;
+
+    dataThroughput.add(dataSize, { endpoint: 'data_api' });
+    requestsPerSecond.add(1);
+
+    // Метрики базы данных (если доступны)
+    if (response.headers['X-DB-Query-Time']) {
+        databaseQueryTime.add(parseFloat(response.headers['X-DB-Query-Time']));
+    }
+
+    // Cache метрики
+    if (response.headers['X-Cache-Status'] === 'HIT') {
+        cacheHitRate.add(true);
+    } else {
+        cacheHitRate.add(false);
+    }
+}
+```
+
+## 5. ТЕХНИЧЕСКИЕ МЕТРИКИ
+
+### 5.1 Метрики системных ресурсов
+
+```javascript
+// CPU метрики
+export const cpuUserTime = new Gauge('cpu_user_time');
+export const cpuSystemTime = new Gauge('cpu_system_time');
+export const cpuIdleTime = new Gauge('cpu_idle_time');
+export const cpuUsagePercent = new Gauge('cpu_usage_percent');
+
+// Память
+export const memoryTotal = new Gauge('memory_total_bytes');
+export const memoryUsed = new Gauge('memory_used_bytes');
+export const memoryFree = new Gauge('memory_free_bytes');
+export const memoryUsagePercent = new Gauge('memory_usage_percent');
+
+// Диск
+export const diskReadBytes = new Counter('disk_read_bytes');
+export const diskWriteBytes = new Counter('disk_write_bytes');
+export const diskReadTime = new Trend('disk_read_time');
+export const diskWriteTime = new Trend('disk_write_time');
+
+// Сеть
+export const networkBytesIn = new Counter('network_bytes_in');
+export const networkBytesOut = new Counter('network_bytes_out');
+export const networkPacketsIn = new Counter('network_packets_in');
+export const networkPacketsOut = new Counter('network_packets_out');
+export const networkErrors = new Counter('network_errors');
+```
+
+### 5.2 Метрики приложения
+
+```javascript
+// Метрики приложения
+export const appThreads = new Gauge('app_threads');
+export const appConnections = new Gauge('app_connections');
+export const appUptime = new Gauge('app_uptime_seconds');
+export const appRestarts = new Counter('app_restarts');
+
+// Метрики JVM (для Java приложений)
+export const jvmHeapUsed = new Gauge('jvm_heap_used_bytes');
+export const jvmHeapMax = new Gauge('jvm_heap_max_bytes');
+export const jvmGcCount = new Counter('jvm_gc_count');
+export const jvmGcTime = new Trend('jvm_gc_time_ms');
+
+// Метрики базы данных
+export const dbConnectionsActive = new Gauge('db_connections_active');
+export const dbConnectionsIdle = new Gauge('db_connections_idle');
+export const dbQueryCount = new Counter('db_query_count');
+export const dbSlowQueryCount = new Counter('db_slow_query_count');
+```
+
+## 6. СБОР СИСТЕМНЫХ МЕТРИК
+
+### 6.1 Интеграция с Prometheus Node Exporter
+
+```javascript
+// Функция для сбора системных метрик
+export function collectSystemMetrics() {
+    // В реальном сценарии эти данные могут приходить от Node Exporter
+    // или других систем мониторинга
+
+    // Имитация сбора CPU метрик
+    const cpuUsage = Math.random() * 100;
+    cpuUsagePercent.add(cpuUsage, { host: 'app-server-01' });
+
+    // Имитация сбора памяти
+    const memUsed = Math.random() * 8 * 1024 * 1024 * 1024; // 0-8GB
+    const memTotal = 16 * 1024 * 1024 * 1024; // 16GB total
+    memoryUsed.add(memUsed);
+    memoryTotal.add(memTotal);
+    memoryUsagePercent.add((memUsed / memTotal) * 100);
+
+    // Сетевые метрики
+    networkBytesIn.add(Math.random() * 1000000, { interface: 'eth0' });
+    networkBytesOut.add(Math.random() * 500000, { interface: 'eth0' });
+}
+```
+
+### 6.2 Сбор метрик из HTTP ответов
+
+```javascript
+export function collectResponseMetrics(response, endpoint) {
+    // Метрики из заголовков ответа
+    if (response.headers['X-Response-Time']) {
+        apiResponseTime.add(parseFloat(response.headers['X-Response-Time']), { endpoint });
+    }
+
+    if (response.headers['X-Server-CPU']) {
+        cpuUsagePercent.add(parseFloat(response.headers['X-Server-CPU']), { server: 'api-server' });
+    }
+
+    if (response.headers['X-DB-Connections']) {
+        dbConnectionsActive.add(parseInt(response.headers['X-DB-Connections']));
+    }
+
+    // Метрики из тела ответа (если JSON)
+    try {
+        const data = JSON.parse(response.body);
+        if (data.metrics) {
+            if (data.metrics.memory_usage) {
+                memoryUsagePercent.add(data.metrics.memory_usage);
+            }
+            if (data.metrics.active_connections) {
+                appConnections.add(data.metrics.active_connections);
+            }
+        }
+    } catch (e) {
+        // Не JSON ответ, пропускаем
+    }
+}
+```
+
+## 7. ОТПРАВКА МЕТРИК В GRAFANA
+
+### 7.1 Настройка экспорта в InfluxDB
+
+```javascript
+// В options теста
+export const options = {
+    // ... другие настройки ...
+
+    // Экспорт метрик в InfluxDB
+    ext: {
+        loadimpact: {
+            projectID: 12345,
+            name: 'Custom Metrics Test'
+        }
+    }
+};
+```
+
+### 7.2 Docker Compose для метрик
+
+```yaml
+# Из docker-compose.yml проекта
+influxdb:
+  image: influxdb:1.8
+  ports: ["8086:8086"]
+  environment:
+    - INFLUXDB_DB=k6
+    - INFLUXDB_HTTP_AUTH_ENABLED=false
+
+grafana:
+  image: grafana/grafana:10.2.0
+  ports: ["3001:3000"]
+  environment:
+    - GF_SECURITY_ADMIN_PASSWORD=admin
+  volumes:
+    - ./grafana/provisioning:/etc/grafana/provisioning
+```
+
+### 7.3 Настройка дашборда Grafana
+
+```json
+// Из k6-dashboard.json
+{
+  "panels": [
+    {
+      "title": "Custom Business Metrics",
+      "targets": [
+        {
+          "expr": "rate(user_registrations_total[5m])",
+          "legendFormat": "Registrations/min"
+        },
+        {
+          "expr": "rate(purchases_total[5m])",
+          "legendFormat": "Purchases/min"
+        }
+      ]
+    },
+    {
+      "title": "System Resources",
+      "targets": [
+        {
+          "expr": "cpu_usage_percent",
+          "legendFormat": "CPU Usage %"
+        },
+        {
+          "expr": "memory_usage_percent",
+          "legendFormat": "Memory Usage %"
+        }
+      ]
+    }
+  ]
+}
+```
+
+## 8. ПРАКТИЧЕСКИЕ СОВЕТЫ ПО ИСПОЛЬЗОВАНИЮ
+
+### 8.1 Организация метрик
+
+```javascript
+// metrics.js - централизованное определение метрик
+import { Counter, Gauge, Rate, Trend } from 'k6/metrics';
+
+// Бизнес метрики
+export const businessMetrics = {
+    userRegistrations: new Counter('user_registrations'),
+    purchases: new Counter('purchases'),
+    conversionRate: new Rate('conversion_rate')
+};
+
+// Технические метрики
+export const technicalMetrics = {
+    responseTime: new Trend('response_time'),
+    errorRate: new Rate('error_rate'),
+    throughput: new Rate('throughput')
+};
+
+// Системные метрики
+export const systemMetrics = {
+    cpuUsage: new Gauge('cpu_usage'),
+    memoryUsage: new Gauge('memory_usage'),
+    diskUsage: new Gauge('disk_usage')
+};
+```
+
+### 8.2 Использование тегов для группировки
+
+```javascript
+// Хорошие практики тегирования
+requestDuration.add(duration, {
+    endpoint: 'api/users',
+    method: 'GET',
+    version: 'v1',
+    environment: 'production',
+    region: 'us-east-1'
+});
+
+// Избегайте слишком большого количества уникальных тегов
+// Плохо: user_id: '12345' (слишком много уникальных значений)
+// Хорошо: user_type: 'premium' (ограниченное количество значений)
+```
+
+### 8.3 Производительность и оптимизация
+
+```javascript
+// Эффективное использование метрик
+export function efficientMetricsUpdate(response, tags) {
+    // Обновляем только необходимые метрики
+    if (response.status === 200) {
+        successRate.add(true, tags);
+        responseTime.add(response.timings.duration, tags);
+    } else {
+        errorCount.add(1, tags);
+        errorRate.add(true, tags);
+    }
+
+    // Избегаем лишних вычислений
+    // Хорошо: responseTime.add(duration, tags);
+    // Плохо: responseTime.add(calculateComplexDuration(), tags);
+}
+```
+
+### 8.4 Валидация и отладка метрик
+
+```javascript
+// Функция для валидации метрик
+export function validateMetrics() {
+    // Проверки на этапе инициализации
+    if (!successRate) {
+        throw new Error('successRate metric not initialized');
+    }
+
+    console.log('All metrics initialized successfully');
+}
+
+// Отладочный вывод метрик
+export function debugMetrics() {
+    console.log('Current metrics state:');
+    console.log(`Active users: ${activeUsers.value}`);
+    console.log(`Success rate: ${(successRate.rate * 100).toFixed(2)}%`);
+    console.log(`Error count: ${errorCount.count}`);
+}
+```
+
+## 9. ПРИМЕРЫ РЕАЛЬНЫХ СЦЕНАРИЕВ
+
+### 9.1 E-commerce тестирование
+
+```javascript
+// Метрики для интернет-магазина
+export const eCommerceMetrics = {
+    productViews: new Counter('product_views'),
+    cartAdditions: new Counter('cart_additions'),
+    checkouts: new Counter('checkouts'),
+    ordersCompleted: new Counter('orders_completed'),
+    revenue: new Trend('revenue_amount'),
+    conversionFunnel: new Rate('conversion_funnel')
+};
+
+export default function() {
+    // Просмотр товаров
+    eCommerceMetrics.productViews.add(1, { category: 'electronics' });
+
+    // Добавление в корзину
+    eCommerceMetrics.cartAdditions.add(1, { product_id: '123' });
+
+    // Оформление заказа
+    eCommerceMetrics.checkouts.add(1);
+
+    // Завершение покупки
+    eCommerceMetrics.ordersCompleted.add(1, { amount: 299.99 });
+    eCommerceMetrics.revenue.add(299.99);
+    eCommerceMetrics.conversionFunnel.add(true, { step: 'purchase' });
+}
+```
+
+### 9.2 API тестирование
+
+```javascript
+// Метрики для API
+export const apiMetrics = {
+    requestCount: new Counter('api_requests'),
+    responseTime: new Trend('api_response_time'),
+    errorRate: new Rate('api_error_rate'),
+    throughput: new Rate('api_throughput'),
+    payloadSize: new Trend('api_payload_size')
+};
+
+export function testAPIMetrics(url, method, payload) {
+    const start = Date.now();
+    const response = http.request(method, url, payload);
+    const duration = Date.now() - start;
+
+    apiMetrics.requestCount.add(1, { method, endpoint: url });
+    apiMetrics.responseTime.add(duration, { method, endpoint: url });
+    apiMetrics.throughput.add(1);
+
+    if (response.status >= 400) {
+        apiMetrics.errorRate.add(true, { method, endpoint: url });
+    } else {
+        apiMetrics.errorRate.add(false, { method, endpoint: url });
+    }
+
+    if (response.body) {
+        apiMetrics.payloadSize.add(response.body.length, { method, endpoint: url });
+    }
+
+    return response;
+}
+```

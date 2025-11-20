@@ -1,0 +1,268 @@
+# РУКОВОДСТВО ПО НАЧАЛУ РАБОТЫ С K6
+
+## 1. ЧТО ТАКОЕ K6?
+
+k6 - это инструмент для нагрузочного тестирования, разработанный Grafana Labs. Он позволяет:
+- Писать тесты на JavaScript/TypeScript
+- Имитировать тысячи виртуальных пользователей
+- Мониторить производительность в реальном времени
+- Интегрироваться с системами мониторинга
+
+## 2. УСТАНОВКА K6
+
+### 2.1 Windows (через Chocolatey)
+```bash
+choco install k6
+```
+
+### 2.2 Windows (через winget)
+```bash
+winget install k6
+```
+
+### 2.3 Linux (Ubuntu/Debian)
+```bash
+sudo apt update
+sudo apt install k6
+```
+
+### 2.4 macOS (через Homebrew)
+```bash
+brew install k6
+```
+
+### 2.5 Docker (рекомендуется для этого проекта)
+```bash
+# Используем готовый контейнер из docker-compose.yml
+docker-compose up -d k6-dashboard
+```
+
+### 2.6 Проверка установки
+```bash
+k6 version
+# Должно вывести версию k6
+```
+
+## 3. ПЕРВЫЙ ТЕСТ - HELLO WORLD
+
+### 3.1 Создание простого теста
+Создайте файл `hello.js`:
+
+```javascript
+import http from 'k6/http';
+import { check } from 'k6';
+
+export default function() {
+    // Отправляем GET запрос
+    const response = http.get('https://httpbin.org/get');
+
+    // Проверяем ответ
+    check(response, {
+        'status is 200': (r) => r.status === 200,
+        'response time < 500ms': (r) => r.timings.duration < 500
+    });
+}
+```
+
+### 3.2 Запуск теста
+```bash
+# Запуск с 1 виртуальным пользователем на 10 секунд
+k6 run hello.js
+
+# Или через Docker
+docker exec -it k6-dashboard k6 run /scripts/hello.js
+```
+
+### 3.3 Что происходит?
+- k6 запускает 1 виртуального пользователя (VU)
+- VU выполняет функцию default() в цикле
+- Каждый цикл = одна итерация
+- Тест длится 10 секунд по умолчанию
+
+## 4. ОСНОВНЫЕ КОНЦЕПЦИИ
+
+### 4.1 Virtual Users (VUS)
+```javascript
+export const options = {
+    vus: 10,        // 10 одновременных пользователей
+    duration: '30s' // тест длится 30 секунд
+};
+```
+
+### 4.2 Stages (Этапы нагрузки)
+```javascript
+export const options = {
+    stages: [
+        { duration: '10s', target: 10 },  // Рамп-ап до 10 VUS за 10 сек
+        { duration: '30s', target: 10 },  // Держим 10 VUS 30 сек
+        { duration: '10s', target: 0 }    // Рамп-даун до 0
+    ]
+};
+```
+
+### 4.3 Checks (Проверки)
+```javascript
+const response = http.get('https://api.testsite.com/users');
+
+check(response, {
+    'статус 200': (r) => r.status === 200,
+    'время ответа < 1s': (r) => r.timings.duration < 1000,
+    'содержит пользователей': (r) => r.json().length > 0
+});
+```
+
+### 4.4 Thresholds (Пороги)
+```javascript
+export const options = {
+    thresholds: {
+        http_req_duration: ['p(95)<500'], // 95% запросов < 500мс
+        http_req_failed: ['rate<0.1']     // Ошибок < 10%
+    }
+};
+```
+
+## 5. РАБОТА С ПРОЕКТОМ
+
+### 5.1 Структура проекта
+```
+k6-load-testing-2/
+├── tests/
+│   ├── scenarios/      # Сценарии тестов
+│   ├── libs/           # Вспомогательные функции
+│   └── data/           # Тестовые данные
+├── config/             # Конфигурация сред
+├── scripts/            # Скрипты для отчетов
+├── grafana/            # Настройка дашбордов
+├── prometheus/         # Конфигурация метрик
+└── docker-compose.yml  # Оркестрация сервисов
+```
+
+### 5.2 Запуск smoke теста
+```bash
+# Через Docker
+docker exec -it k6-dashboard k6 run /scripts/tests/scenarios/smoke-test.js
+
+# Или локально (если k6 установлен)
+k6 run tests/scenarios/smoke-test.js
+```
+
+### 5.3 Запуск load теста
+```bash
+docker exec -it k6-dashboard k6 run /scripts/tests/scenarios/load-test.js
+```
+
+## 6. ОСНОВНЫЕ КОМАНДЫ K6
+
+### 6.1 Базовые команды
+```bash
+# Запуск теста
+k6 run script.js
+
+# Запуск с выводом в облако
+k6 run --out cloud script.js
+
+# Запуск с выводом в JSON
+k6 run --out json=results.json script.js
+
+# Проверка синтаксиса без выполнения
+k6 check script.js
+```
+
+### 6.2 Опции командной строки
+```bash
+# Установка переменных окружения
+k6 run -e BASE_URL=https://api.testsite.com script.js
+
+# Настройка VUS и duration
+k6 run --vus 50 --duration 2m script.js
+
+# Настройка stages через CLI
+k6 run --stage 10s:10,30s:10,10s:0 script.js
+```
+
+### 6.3 Интеграция с InfluxDB
+```bash
+# Вывод метрик в InfluxDB
+k6 run --out influxdb=http://localhost:8086/mydb script.js
+```
+
+## 7. ОТЛАДКА И РАЗРАБОТКА
+
+### 7.1 Логирование
+```javascript
+import { check } from 'k6';
+
+export default function() {
+    console.log('Начало итерации');
+
+    const response = http.get('https://api.testsite.com');
+
+    if (response.status !== 200) {
+        console.error(`Ошибка: статус ${response.status}`);
+    }
+
+    console.log(`Время ответа: ${response.timings.duration}мс`);
+}
+```
+
+### 7.2 Группировка проверок
+```javascript
+import { group } from 'k6';
+
+export default function() {
+    group('Аутентификация', () => {
+        // Тесты входа
+    });
+
+    group('API тесты', () => {
+        // Тесты API
+    });
+}
+```
+
+### 7.3 Обработка ошибок
+```javascript
+export default function() {
+    try {
+        const response = http.get('https://api.testsite.com');
+        // Обработка ответа
+    } catch (error) {
+        console.error(`Ошибка запроса: ${error.message}`);
+    }
+}
+```
+
+## 8. СЛЕДУЮЩИЕ ШАГИ
+
+1. Изучите проект: Прочитайте `loadTestingFundamentals.txt`
+2. Запустите проект: Следуйте `projectQuickStart.txt`
+3. Настройте мониторинг: Изучите `monitoringGuide.txt`
+4. Создайте свой тест: Используйте примеры из `tests/scenarios/`
+5. Изучите метрики: Прочитайте `createCustomMetrix.txt`
+6. Освойте stages: Изучите `k6SetStages.txt`
+
+## 9. ПОЛЕЗНЫЕ РЕСУРСЫ
+
+- Документация k6: https://k6.io/docs/
+- k6 Cloud: https://k6.io/cloud/
+- Сообщество: https://community.k6.io/
+- Примеры: https://k6.io/docs/examples/
+
+## 10. ВОПРОСЫ
+
+### Q: k6 или JMeter - что выбрать?
+A: k6 для современного скриптинга на JS, JMeter для enterprise с GUI
+
+### Q: Сколько VUS нужно для теста?
+A: Зависит от приложения.
+
+### Q: Как имитировать реальных пользователей?
+A: pacing (sleep), случайные задержки, паттерны поведения
+
+### Q: Где хранить тестовые данные?
+A: В CSV файлах, JSON, или генерировать динамически
+
+### Q: Как интегрировать в CI/CD?
+A: k6 в Docker, запускайте в пайплайнах GitLab/GitHub
+
+---

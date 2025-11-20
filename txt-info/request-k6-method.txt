@@ -1,0 +1,242 @@
+HTTP ЗАПРОСЫ В K6: GET, POST, PUT, DELETE
+
+В этом файле объясняется, как выполняются HTTP запросы в k6 на примере проекта.
+Показаны полные пути выполнения запросов и простые примеры для каждого метода.
+
+Используется тестовый API https://reqres.in для демонстрации.
+
+## 1. GET ЗАПРОС (ПОЛУЧЕНИЕ ДАННЫХ)
+
+GET запросы используются для получения данных с сервера без изменения состояния.
+
+### Пример из проекта (tests/libs/utils.js):
+```javascript
+export function makeGetRequest(url, tag) {
+    const start = Date.now();
+    const response = http.get(url);  // Выполнение GET запроса
+    const duration = Date.now() - start;
+
+    // Метрики и проверки...
+    return response;
+}
+```
+
+### Полный путь выполнения GET запроса:
+1. Импорт модуля: `import http from 'k6/http';`
+2. Выполнение: `const response = http.get(url);`
+3. Проверка ответа: `check(response, { 'status is 200': (r) => r.status === 200 });`
+4. Обработка данных: `const data = JSON.parse(response.body);`
+
+### Простой пример GET для reqres.in:
+```javascript
+import http from 'k6/http';
+import { check } from 'k6';
+
+export default function() {
+    // Получение списка пользователей
+    const response = http.get('https://reqres.in/api/users?page=2');
+
+    check(response, {
+        'status is 200': (r) => r.status === 200,
+        'has users array': (r) => {
+            const data = JSON.parse(r.body);
+            return data.data && Array.isArray(data.data);
+        }
+    });
+
+    console.log(`Получено ${JSON.parse(response.body).data.length} пользователей`);
+}
+```
+
+## 2. POST ЗАПРОС
+
+POST запросы используются для создания новых ресурсов на сервере.
+
+### Пример из проекта (tests/libs/utils.js):
+```javascript
+export function makePostRequest(url, payload, tag) {
+    const params = {
+        headers: { 'Content-Type': 'application/json' },
+    };
+
+    const start = Date.now();
+    const response = http.post(url, JSON.stringify(payload), params);  // POST
+    const duration = Date.now() - start;
+
+    // Метрики и проверки...
+    return response;
+}
+```
+
+### Полный путь выполнения POST запроса:
+1. Подготовка данных: `const payload = { name: 'John', job: 'Developer' };`
+2. Настройка заголовков: `const params = { headers: { 'Content-Type': 'application/json' } };`
+3. Выполнение: `const response = http.post(url, JSON.stringify(payload), params);`
+4. Проверка создания: `check(response, { 'status is 201': (r) => r.status === 201 });`
+
+### Простой пример POST для reqres.in:
+```javascript
+import http from 'k6/http';
+import { check } from 'k6';
+
+export default function() {
+    // Создание нового пользователя
+    const payload = {
+        name: 'John Doe',
+        job: 'Software Developer'
+    };
+
+    const response = http.post(
+        'https://reqres.in/api/users',
+        JSON.stringify(payload),
+        { headers: { 'Content-Type': 'application/json' } }
+    );
+
+    check(response, {
+        'user created': (r) => r.status === 201,
+        'has id': (r) => {
+            const data = JSON.parse(r.body);
+            return data.id !== undefined;
+        }
+    });
+
+    console.log(`Создан пользователь с ID: ${JSON.parse(response.body).id}`);
+}
+```
+
+## 3. PUT ЗАПРОС
+
+PUT запросы используются для полного обновления существующего ресурса.
+
+### Пример из проекта (tests/scenarios/chain-test.js):
+```javascript
+// Обновление данных пользователя
+const updateResponse = http.put(
+    `https://jsonplaceholder.typicode.com/users/${userId}`,
+    JSON.stringify(updatedData),
+    { headers: { 'Content-Type': 'application/json' } }
+);
+```
+
+### Полный путь выполнения PUT запроса:
+1. Подготовка обновленных данных: `const updatedData = { name: 'Updated Name', job: 'New Job' };`
+2. Указание ID ресурса в URL: `const url = `https://reqres.in/api/users/${userId}`;`
+3. Выполнение: `const response = http.put(url, JSON.stringify(updatedData), params);`
+4. Проверка обновления: `check(response, { 'status is 200': (r) => r.status === 200 });`
+
+### Простой пример PUT для reqres.in:
+```javascript
+import http from 'k6/http';
+import { check } from 'k6';
+
+export default function() {
+    const userId = 2;  // ID пользователя для обновления
+
+    // Обновление данных пользователя
+    const payload = {
+        name: 'Jane Doe',
+        job: 'Project Manager'
+    };
+
+    const response = http.put(
+        `https://reqres.in/api/users/${userId}`,
+        JSON.stringify(payload),
+        { headers: { 'Content-Type': 'application/json' } }
+    );
+
+    check(response, {
+        'user updated': (r) => r.status === 200,
+        'updated name': (r) => {
+            const data = JSON.parse(r.body);
+            return data.name === 'Jane Doe';
+        }
+    });
+
+    console.log(`Пользователь ${userId} обновлен`);
+}
+```
+
+## 4. DELETE
+
+DELETE запросы используются для удаления ресурсов с сервера.
+
+### Пример из проекта (tests/scenarios/security-load-test.js):
+```javascript
+// Удаление ресурса
+const deleteResponse = http.del(`${baseUrl}/posts/${postId}`);
+```
+
+### Полный путь выполнения DELETE запроса:
+1. Указание ID ресурса в URL: `const url = `https://reqres.in/api/users/${userId}`;`
+2. Выполнение: `const response = http.del(url);`
+3. Проверка удаления: `check(response, { 'status is 204': (r) => r.status === 204 });`
+
+### Простой пример DELETE для reqres.in:
+```javascript
+import http from 'k6/http';
+import { check } from 'k6';
+
+export default function() {
+    const userId = 2;  // ID пользователя для удаления
+
+    // Удаление пользователя
+    const response = http.del(`https://reqres.in/api/users/${userId}`);
+
+    check(response, {
+        'user deleted': (r) => r.status === 204  // 204 No Content - успешное удаление
+    });
+
+    console.log(`Пользователь ${userId} удален`);
+}
+```
+
+## ОБЩИЕ ПРАВИЛА ДЛЯ ВСЕХ МЕТОДОВ:
+
+### Импорты:
+```javascript
+import http from 'k6/http';
+import { check } from 'k6';
+```
+
+### Структура ответа:
+- `response.status` - HTTP статус код
+- `response.body` - тело ответа (строка)
+- `response.headers` - заголовки ответа
+- `response.timings` - информация о времени выполнения
+
+### Проверка ответов:
+```javascript
+const isSuccess = check(response, {
+    'status is 200': (r) => r.status === 200,
+    'response time < 2s': (r) => r.timings.duration < 2000,
+    'has data': (r) => r.body.length > 0
+});
+```
+
+### Парсинг JSON:
+```javascript
+const data = JSON.parse(response.body);
+console.log(data);
+```
+
+### Заголовки для JSON:
+```javascript
+const params = {
+    headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer token'  // если нужна аутентификация
+    }
+};
+```
+
+## ЗАПУСК ТЕСТОВ:
+
+```bash
+# Запуск теста
+k6 run script.js
+
+# С опциями
+k6 run --vus 10 --duration 30s script.js
+```
+
+Все примеры используют https://reqres.in

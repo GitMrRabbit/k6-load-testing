@@ -1,0 +1,110 @@
+(Для личного пользования) проблемасьЁн и что собственно помогло
+
+1. Проблема: Ошибка "ReferenceError: http is not defined"
+Симптомы:
+Тесты падают с ошибкой ReferenceError
+В логах видно, что модуль http не импортирован
+Решение:
+Добавить импорт http в начало файла tests/libs/utils.js:
+import http from 'k6/http';
+
+2. Проблема: Запуск скриптов в Windows
+Симптомы:
+Ошибка "не является внутренней или внешней командой"
+PowerShell-исправить по синтаксису и повнимательнее БлеатТ!:
+Обновить package.json
+
+3. Проблема: Контейнер k6-dashboard не запускается
+Симптомы:
+Ошибки "unknown command" для tail/sleep
+Контейнер постоянно перезапускается
+Решение:
+Исправить команду в docker-compose.yml:
+k6-dashboard:
+  entrypoint: ["/bin/sh", "-c", "sleep infinity"]
+
+4. Проблема: Метрики не пишутся в Prometheus
+Симптомы:
+Ошибка "Failed to send the time series data"
+Статус 404 при записи метрик
+Решение:
+Добавить в Prometheus флаг remote write:
+prometheus:
+  command:
+    - '--web.enable-remote-write-receiver'
+(Изменено: помогло но проблема стала с временными метриками - реализовано иначе)
+
+5. Проблема: Grafana не запускается из-за конфликта источников данных
+Симптомы:
+Ошибка "Only one datasource per organization can be marked as default"
+Контейнер Grafana падает при старте
+Решение:
+Удалить все файлы в grafana/provisioning/datasources/ и создать один файл:
+apiVersion: 1
+datasources:
+  - name: InfluxDB
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    database: k6
+    isDefault: true
+
+6. Проблема: Grafana недоступна на порту 3000
+Симптомы:
+ERR_CONNECTION_REFUSED при обращении к localhost:3000
+Порт 3000 не слушается но и не занят - почему не работает? Х.З.
+Решение:
+Изменить порт в docker-compose.yml:
+grafana:
+  ports: ["3001:3000"]
+И использовать http://localhost:3001
+
+7. Проблема: Метрики не записываются в InfluxDB
+Симптомы:
+В InfluxDB нет метрик после запуска тестов
+K6 не может подключиться к InfluxDB
+Решение:
+Убедиться в правильной настройке k6-dashboard:
+environment:
+  - K6_OUT=influxdb=http://influxdb:8086/k6
+
+8. Проблема: Проблемы с сетью между контейнерами
+Симптомы:
+K6 не может подключиться к другим сервисам
+Ошибки сетевого соединения
+Решение:
+Перезапустить сеть Docker:
+docker-compose down
+docker network prune
+docker-compose up -d
+
+9. Проблема: Отсутствуют контейнеры
+Симптомы:
+Не все 7 контейнеров запущены
+Некоторые сервисы недоступны
+Решение:
+Полная перезагрузка системы:
+docker-compose down
+docker-compose up -d
+
+10. Проблема: PowerShell скрипты с русскими символами
+Симптомы:
+Синтаксические ошибки в PowerShell
+Проблемы с кодировкой
+Решение:
+Использовать английские сообщения или правильную кодировку UTF-8
+
+Проактивные проверки
+Команда для проверки всей системы:
+npm run check
+Быстрая диагностика:
+Проверить контейнеры: docker ps
+Проверить логи: docker-compose logs [сервис]
+Проверить сеть: docker network inspect k6-load-testing_default
+Перезапустить всё: docker-compose down && docker-compose up -d
+Типичная последовательность устранения проблем:
+Проверить статус контейнеров
+Проверить логи проблемного сервиса
+Исправить конфигурацию
+Перезапустить сервис или всю систему
+Запустить проверочный тест
