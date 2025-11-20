@@ -353,7 +353,7 @@ jobs:
         id: generate_report
         run: |
           if [ -z "$(ls results/*.json 2>/dev/null)" ]; then
-            echo "❌ Ошибка: Файлы не найдены"
+            echo "❌ Ошибка: Файлы не найдены ❌"
             exit 1
           fi
 
@@ -380,13 +380,13 @@ jobs:
             REPORT_MESSAGE+="- $TEST_NAME: $STATUS %0A"
           done
 
-          REPORT_MESSAGE+="%0A🟢 *Passed*: $PASSED_TESTS %0A"
-          REPORT_MESSAGE+="🔴 *Failed*: $FAILED_TESTS %0A%0A"
+          REPORT_MESSAGE+="%0A✅ *Passed*: $PASSED_TESTS %0A"
+          REPORT_MESSAGE+="❌ *Failed*: $FAILED_TESTS %0A%0A"
 
           if [ "$FAILED_TESTS" -eq 0 ]; then
-            REPORT_MESSAGE+="🎉 *Overall Status*: ALL TESTS PASSED! %0A"
+            REPORT_MESSAGE+="✅ *Overall Status*: ALL TESTS PASSED! %0A"
           else
-            REPORT_MESSAGE+="💥 *Overall Status*: $FAILED_TESTS TEST(S) FAILED %0A"
+            REPORT_MESSAGE+="❌ *Overall Status*: $FAILED_TESTS TEST(S) FAILED %0A"
           fi
 
           echo "REPORT_MESSAGE=$REPORT_MESSAGE" >> $GITHUB_ENV
