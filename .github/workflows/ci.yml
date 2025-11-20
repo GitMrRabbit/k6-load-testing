@@ -336,9 +336,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install jq
-        run: sudo apt-get install -y jq
-
       - name: Download all test results
         uses: actions/download-artifact@v4
         with:
@@ -352,44 +349,9 @@ jobs:
       - name: Generate Telegram report
         id: generate_report
         run: |
-          if [ -z "$(ls results/*.json 2>/dev/null)" ]; then
-            echo "❌ Ошибка: Файлы не найдены ❌"
-            exit 1
-          fi
-
-          TOTAL_TESTS=$(ls results/*.json 2>/dev/null | wc -l)
-          PASSED_TESTS=0
-          FAILED_TESTS=0
-
-          REPORT_MESSAGE="📊 *K6 Load Test Report* %0A"
-          REPORT_MESSAGE+="📅 *Date*: $(date +'%Y-%m-%d %H:%M:%S') %0A%0A"
-          REPORT_MESSAGE+="📋 *Total Tests*: $TOTAL_TESTS %0A"
-
-          for file in results/*.json; do
-            TEST_NAME=$(basename "$file" | cut -d'-' -f1)
-            ERROR_RATE=$(jq '.metrics.error_rate' "$file" 2>/dev/null || echo "N/A")
-
-            if [ "$ERROR_RATE" = "0" ] || [ "$ERROR_RATE" = "N/A" ]; then
-              PASSED_TESTS=$((PASSED_TESTS + 1))
-              STATUS="✅"
-            else
-              FAILED_TESTS=$((FAILED_TESTS + 1))
-              STATUS="❌"
-            fi
-
-            REPORT_MESSAGE+="- $TEST_NAME: $STATUS %0A"
-          done
-
-          REPORT_MESSAGE+="%0A✅ *Passed*: $PASSED_TESTS %0A"
-          REPORT_MESSAGE+="❌ *Failed*: $FAILED_TESTS %0A%0A"
-
-          if [ "$FAILED_TESTS" -eq 0 ]; then
-            REPORT_MESSAGE+="✅ *Overall Status*: ALL TESTS PASSED! %0A"
-          else
-            REPORT_MESSAGE+="❌ *Overall Status*: $FAILED_TESTS TEST(S) FAILED %0A"
-          fi
-
-          echo "REPORT_MESSAGE=$REPORT_MESSAGE" >> $GITHUB_ENV
+          python scripts/generate_telegram_report.py results/ > telegram_report.txt
+          cat telegram_report.txt
+          echo "REPORT_MESSAGE=$(cat telegram_report.txt)" >> $GITHUB_ENV
 
       - name: Send Telegram notification
         if: always()
@@ -398,7 +360,7 @@ jobs:
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           message: ${{ env.REPORT_MESSAGE }}
-          parse_mode: Markdown
+
 
   # === УВЕДОМЛЕНИЯ SLACK ===
   notify_slack:
