@@ -327,7 +327,7 @@ jobs:
           path: results/k6-load-test-report.html
           retention-days: 30
 
-  # === УВЕДОМЛЕНИЕ В TELEGRAM ===
+  # === УВЕДОМЛЕНИЕ (МИНИ ОТЧЁТ) В TELEGRAM ===
   notify_telegram:
     runs-on: ubuntu-latest
     needs: [ generate_report ]
@@ -336,15 +336,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install dependencies
+        run: |
+          sudo apt-get install -y jq
+          pip install matplotlib
+
       - name: Download all test results
         uses: actions/download-artifact@v4
         with:
           pattern: '*test-results'
           path: results/
           merge-multiple: true
-
-      - name: List downloaded files
-        run: ls -la results/
 
       - name: Generate Telegram report
         id: generate_report
@@ -360,7 +362,8 @@ jobs:
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           message: ${{ env.REPORT_MESSAGE }}
-
+          photo: results/pie_chart.png
+          parse_mode: Markdown
 
   # === УВЕДОМЛЕНИЯ SLACK ===
   notify_slack:
