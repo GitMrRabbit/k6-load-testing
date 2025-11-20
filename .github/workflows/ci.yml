@@ -5,9 +5,9 @@ name: K6 Load Testing CI/CD
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 env:
   K6_VERSION: "0.45.0"
@@ -27,7 +27,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: "18"
 
       - name: Install dependencies
         run: |
@@ -38,7 +38,38 @@ jobs:
           node config/validation.js
           echo "Конфигурация валидна"
 
-  # === SMOKE ТЕСТЫ  ===
+  # === ЗАПУСК ИНФРАСТРУКТУРЫ ===
+  start_infrastructure:
+    runs-on: ubuntu-latest
+    needs: validate_config
+    outputs:
+      infrastructure-started: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Setup Docker
+        run: |
+          docker --version
+          docker compose version
+
+      - name: Start infrastructure
+        run: docker compose up -d
+
+      - name: Wait for services
+        run: sleep 30
+
+      - name: Check services health
+        run: chmod +x check-services.sh && npm run check
+
+  # === SMOKE ТЕСТЫ ===
   smoke_test:
     runs-on: ubuntu-latest
     needs: start_infrastructure
@@ -61,7 +92,7 @@ jobs:
           path: results/smoke-${{ github.sha }}.json
           retention-days: 7
 
-  # === LOAD ТЕСТЫ  ===
+  # === LOAD ТЕСТЫ ===
   load_test:
     runs-on: ubuntu-latest
     needs: smoke_test
@@ -82,7 +113,7 @@ jobs:
         uses: grafana/k6-action@v0.3.0
         with:
           filename: tests/scenarios/load-test.js
-          flags: '--out json=results/load-${{ github.sha }}.json'
+          flags: "--out json=results/load-${{ github.sha }}.json"
         timeout-minutes: 20
 
       - name: Upload test results
@@ -92,7 +123,7 @@ jobs:
           path: results/load-${{ github.sha }}.json
           retention-days: 7
 
-  # === STRESS ТЕСТЫ  ===
+  # === STRESS ТЕСТЫ ===
   stress_test:
     runs-on: ubuntu-latest
     needs: load_test
@@ -113,7 +144,7 @@ jobs:
         uses: grafana/k6-action@v0.3.0
         with:
           filename: tests/scenarios/stress-test.js
-          flags: '--out json=results/stress-${{ github.sha }}.json'
+          flags: "--out json=results/stress-${{ github.sha }}.json"
         timeout-minutes: 15
         continue-on-error: true
 
@@ -124,7 +155,7 @@ jobs:
           path: results/stress-${{ github.sha }}.json
           retention-days: 7
 
-  # === VOLUME ТЕСТЫ  ===
+  # === VOLUME ТЕСТЫ ===
   volume_test:
     runs-on: ubuntu-latest
     needs: stress_test
@@ -145,7 +176,7 @@ jobs:
         uses: grafana/k6-action@v0.3.0
         with:
           filename: tests/scenarios/volume-test.js
-          flags: '--out json=results/volume-${{ github.sha }}.json'
+          flags: "--out json=results/volume-${{ github.sha }}.json"
         timeout-minutes: 40
         continue-on-error: true
 
@@ -156,38 +187,7 @@ jobs:
           path: results/volume-${{ github.sha }}.json
           retention-days: 7
 
-  # === SOAK ТЕСТЫ  === (Закомментированы для ускорения CI/CD)
-  # soak_test:
-  #   runs-on: ubuntu-latest
-  #   needs: start_infrastructure
-  #   if: github.ref == 'refs/heads/main'
-  #   steps:
-  #   - uses: actions/checkout@v4
-
-  #   - name: Setup Git
-  #     run: |
-  #       git config --global --add safe.directory $GITHUB_WORKSPACE
-  #       git config --global user.name "github-actions[bot]"
-  #       git config --global user.email "github-actions[bot]@users.noreply.github.com"
-
-  #   - name: Create results directory
-  #     run: mkdir -p results
-
-  #   - name: Run soak tests
-  #     uses: grafana/k6-action@v0.3.0
-  #     with:
-  #       filename: tests/scenarios/soak-test.js
-  #       flags: '--out json=results/soak-${{ github.sha }}.json'
-  #     timeout-minutes: 130
-
-  #   - name: Upload test results
-  #     uses: actions/upload-artifact@v4
-  #     with:
-  #       name: soak-test-results
-  #       path: results/soak-${{ github.sha }}.json
-  #       retention-days: 7
-
-  # === SECURITY ТЕСТЫ  ===
+  # === SECURITY ТЕСТЫ ===
   security_test:
     runs-on: ubuntu-latest
     needs: start_infrastructure
@@ -202,7 +202,7 @@ jobs:
         uses: grafana/k6-action@v0.3.0
         with:
           filename: tests/scenarios/security-load-test.js
-          flags: '--out json=results/security-${{ github.sha }}.json'
+          flags: "--out json=results/security-${{ github.sha }}.json"
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
@@ -211,7 +211,7 @@ jobs:
           path: results/security-${{ github.sha }}.json
           retention-days: 7
 
-  # === ADAPTIVE ТЕСТЫ  ===
+  # === ADAPTIVE ТЕСТЫ ===
   adaptive_test:
     runs-on: ubuntu-latest
     needs: start_infrastructure
@@ -226,7 +226,7 @@ jobs:
         uses: grafana/k6-action@v0.3.0
         with:
           filename: tests/scenarios/adaptive-load-test.js
-          flags: '--out json=results/adaptive-${{ github.sha }}.json'
+          flags: "--out json=results/adaptive-${{ github.sha }}.json"
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
@@ -235,41 +235,10 @@ jobs:
           path: results/adaptive-${{ github.sha }}.json
           retention-days: 7
 
-  # === ЗАПУСК ИНФРАСТРУКТУРЫ ===
-  start_infrastructure:
-    runs-on: ubuntu-latest
-    needs: validate_config
-    outputs:
-      infrastructure-started: true
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Setup Docker
-        run: |
-          docker --version
-          docker compose version
-
-      - name: Start infrastructure
-        run: docker compose up -d
-
-      - name: Wait for services
-        run: sleep 30
-
-      - name: Check services health
-        run: chmod +x check-services.sh && npm run check
-
   # === ОСТАНОВКА ИНФРАСТРУКТУРЫ ===
   stop_infrastructure:
     runs-on: ubuntu-latest
-    needs: [ smoke_test, load_test, stress_test, volume_test, security_test, adaptive_test ]
+    needs: [smoke_test, load_test, stress_test, volume_test, security_test, adaptive_test]
     if: always()
     steps:
       - uses: actions/checkout@v4
@@ -280,17 +249,18 @@ jobs:
   # === ГЕНЕРАЦИЯ ОТЧЕТОВ ===
   generate_report:
     runs-on: ubuntu-latest
-    needs: [ smoke_test, load_test, stress_test, volume_test, security_test, adaptive_test ]
+    needs: [smoke_test, load_test, stress_test, volume_test, security_test, adaptive_test]
     if: always() && github.ref == 'refs/heads/main'
     steps:
       - name: Authenticate GitHub CLI
         run: echo "GH_TOKEN=${{ github.token }}" >> $GITHUB_ENV
+
       - uses: actions/checkout@v4
 
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.9'
+          python-version: "3.9"
 
       - name: Install dependencies
         run: |
@@ -299,7 +269,7 @@ jobs:
       - name: Download all test results
         uses: actions/download-artifact@v4
         with:
-          pattern: '*test-results'
+          pattern: "*test-results"
           path: results/
           merge-multiple: true
 
@@ -357,33 +327,90 @@ jobs:
           path: results/k6-load-test-report.html
           retention-days: 30
 
-  # === РАЗВЕРТЫВАНИЕ ИНФРАСТРУКТУРЫ МОНИТОРИНГА === (Закомментировано - требуется регистрация в Docker Hub)
-  # deploy_monitoring:
-  #   runs-on: ubuntu-latest
-  #   needs: generate_report
-  #   if: github.ref == 'refs/heads/main'
-  #   steps:
-  #   - name: Checkout code
-  #     uses: actions/checkout@v4
+  # === УВЕДОМЛЕНИЕ В TELEGRAM ===
+  notify_telegram:
+    runs-on: ubuntu-latest
+    needs: [generate_report]
+    if: always() && github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-  #   - name: Login to Docker Hub
-  #     uses: docker/login-action@v3
-  #     with:
-  #       username: ${{ secrets.DOCKER_USERNAME }}
-  #       password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Install jq
+        run: sudo apt-get install -y jq
 
-  #   - name: Build and push monitoring image
-  #     uses: docker/build-push-action@v5
-  #     with:
-  #       context: .
-  #       file: docker/monitoring.Dockerfile
-  #       push: true
-  #       tags: ${{ secrets.DOCKER_USERNAME }}/k6-monitoring:latest
+      - name: Download test results
+        uses: actions/download-artifact@v4
+        with:
+          name: test-reports
+          path: results/
 
-  # === УВЕДОМЛЕНИЯ  ===
+      - name: Generate Telegram report
+        id: generate_report
+        run: |
+          TOTAL_TESTS=$(ls results/*.json 2>/dev/null | wc -l)
+
+          PASSED_TESTS=$(grep -l '"error_rate": 0' results/*.json 2>/dev/null | wc -l)
+
+          FAILED_TESTS=$((TOTAL_TESTS - PASSED_TESTS))
+
+          REPORT_MESSAGE="🚀 *K6 Load Test Report* %0A%0A"
+          REPORT_MESSAGE+="⏰ *Time*: $(date +'%Y-%m-%d %H:%M:%S') %0A"
+          REPORT_MESSAGE+="🎯 *Total Scenarios*: $TOTAL_TESTS %0A"
+          REPORT_MESSAGE+="🟢 *Successful*: $PASSED_TESTS %0A"
+          REPORT_MESSAGE+="🔴 *Failed*: $FAILED_TESTS %0A%0A"
+
+          if [ $FAILED_TESTS -eq 0 ]; then
+            REPORT_MESSAGE+="🎉 *Overall Status*: ALL TESTS PASSED %0A%0A"
+          else
+            REPORT_MESSAGE+="💥 *Overall Status*: $FAILED_TESTS TEST(S) FAILED %0A%0A"
+          fi
+
+          REPORT_MESSAGE+="📋 *Detailed Results*: %0A"
+
+          for file in results/*.json; do
+            # Извлекаем имя теста
+            TEST_NAME=$(basename "$file" .json | sed 's/-/ /g')
+
+            ERROR_RATE=$(jq '.metrics.error_rate' "$file" 2>/dev/null || echo "0")
+
+            if [ "$ERROR_RATE" = "null" ] || [ -z "$ERROR_RATE" ]; then
+              ERROR_RATE=0
+            fi
+
+            # Определяем статус с разными эмодзи
+            if (( $(echo "$ERROR_RATE == 0" | bc -l) )); then
+              STATUS="🟢"
+              STATUS_TEXT="PASS"
+            elif (( $(echo "$ERROR_RATE < 0.1" | bc -l) )); then
+              STATUS="🟡"
+              STATUS_TEXT="MINOR ISSUES"
+            else
+              STATUS="🔴"
+              STATUS_TEXT="FAIL"
+            fi
+
+            REPORT_MESSAGE+="$STATUS *${TEST_NAME}*: $STATUS_TEXT (Error rate: ${ERROR_RATE}%%) %0A"
+          done
+
+          REPORT_MESSAGE+="%0A━━━━━━━━━━━━━━━━━━━━%0A"
+          REPORT_MESSAGE+="🔍 *View Details*: [GitHub Actions](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) %0A"
+
+          echo "REPORT_MESSAGE=$REPORT_MESSAGE" >> $GITHUB_ENV
+
+      - name: Send Telegram notification
+        if: always()
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_CHAT_ID }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          message: ${{ env.REPORT_MESSAGE }}
+          parse_mode: Markdown
+
+  # === УВЕДОМЛЕНИЯ SLACK ===
   notify_slack:
     runs-on: ubuntu-latest
-    needs: [ smoke_test, load_test, stress_test, volume_test, security_test, adaptive_test, generate_report ]
+    needs: [smoke_test, load_test, stress_test, volume_test, security_test, adaptive_test, generate_report]
     if: always() && github.ref == 'refs/heads/main'
     steps:
       - name: Send Slack notification
@@ -400,7 +427,7 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         if: env.SLACK_WEBHOOK_URL != ''
 
-  # ==== ОЧИСТКА СТАРЫХ АРТЕФАКТОВ ===
+  # === ОЧИСТКА СТАРЫХ АРТЕФАКТОВ ===
   cleanup:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
