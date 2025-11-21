@@ -51,7 +51,7 @@ def generate_modern_report(passed, failed, tests_data, output_file):
 
     total_tests = passed + failed
     status_color = '#4CAF50' if failed == 0 else '#FF6B6B' # крч будет зависить от прогона - ок - зелёный нет - аленькой
-    ax_header.text(1.0, 1.5, f'TOTAL: {total_tests}',
+    ax_header.text(0.5, 1.5, f'TOTAL: {total_tests}',
                    fontsize=16, color=status_color, ha='right', va='top',
                    weight='bold', bbox=dict(boxstyle="round,pad=0.3",
                                            facecolor='#2d2d2d',
@@ -79,7 +79,7 @@ def generate_modern_report(passed, failed, tests_data, output_file):
             autotext.set_weight('bold')
 
     ax_pie.axis('equal')
-    ax_pie.set_title('Test Results Distribution', color='white', pad=20, weight='bold')
+    ax_pie.set_title('Test Results Distribution', color='white', pad=30, weight='bold') # TestResDist > 20
     ax_pie.set_facecolor('#1e1e1e')
 
     ax_status = fig.add_axes([0.55, 0.52, 0.4, 0.4])
@@ -116,7 +116,7 @@ def generate_modern_report(passed, failed, tests_data, output_file):
                    weight='bold')
 
     y_pos = 0.85
-    row_height = 0.08 # || string up down
+    row_height = 0.09 # || string up down
 
     headers = ['TEST NAME', 'REQUESTS', 'ERRORS', 'ERROR RATE', 'STATUS']
     header_x_positions = [0.02, 0.25, 0.45, 0.65, 0.85]
