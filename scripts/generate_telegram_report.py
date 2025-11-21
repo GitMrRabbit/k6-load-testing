@@ -6,7 +6,6 @@ from datetime import datetime
 import matplotlib.pyplot as plt
 
 def count_errors_in_file(filepath):
-    """Считает количество ошибок и запросов в JSON-файле."""
     error_count = 0
     total_requests = 0
 
@@ -28,8 +27,7 @@ def count_errors_in_file(filepath):
     return error_count, total_requests
 
 def generate_pie_chart(passed, failed, output_file):
-    """диаграмма"""
-    labels = ['Passed', 'Failed']
+    labels = ['✅ Passed', '❌ Failed']
     sizes = [passed, failed]
     colors = ['#4CAF50', '#F44336']
 
@@ -38,13 +36,12 @@ def generate_pie_chart(passed, failed, output_file):
     ax.axis('equal')
     ax.set_facecolor('#2d2d2d')
     fig.patch.set_facecolor('#2d2d2d')
-
     plt.title(f"Total: {passed + failed}", color='white', fontsize=14)
     plt.savefig(output_file, dpi=100, facecolor='#2d2d2d')
     plt.close()
 
 def generate_telegram_report(results_dir):
-    """Генерирует отчёт и диаграмму для Telegram."""
+    """диаграмма"""
     if not os.path.exists(results_dir):
         return "❌ Ошибка: Директория с результатами не найдена.", None
 
@@ -55,13 +52,16 @@ def generate_telegram_report(results_dir):
     total_tests = len(json_files)
     passed_tests = 0
     failed_tests = 0
+
     report_lines = []
 
     report_lines.append("📊 K6 Load Test Report")
-    report_lines.append(f"📅 Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    report_lines.append(f"📋 Total Tests: {total_tests}")
+    report_lines.append("=" * 25)
+    report_lines.append(f"📅 Дата: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    report_lines.append(f"📋 Всего тестов: {total_tests}")
     report_lines.append("")
 
+    report_lines.append("🔹 РЕЗУЛЬТАТЫ ТЕСТОВ:")
     for filename in json_files:
         filepath = os.path.join(results_dir, filename)
         error_count, total_requests = count_errors_in_file(filepath)
@@ -76,21 +76,34 @@ def generate_telegram_report(results_dir):
             failed_tests += 1
             status = "❌"
 
-        report_lines.append(f"- {test_name}: {status} (Requests: {total_requests}, Errors: {error_count}, Error Rate: {error_rate:.2f}%)")
+        report_lines.append(
+            f"  {status} {test_name}:"
+        )
+        report_lines.append(
+            f"    Запросы: {total_requests}"
+        )
+        report_lines.append(
+            f"    Ошибки: {error_count}"
+        )
+        report_lines.append(
+            f"    Процент ошибок: {error_rate:.2f}%"
+        )
+        report_lines.append("")
 
+    report_lines.append("---")
+    report_lines.append(f"✅ Успешно: {passed_tests}")
+    report_lines.append(f"❌ С ошибками: {failed_tests}")
     report_lines.append("")
-    report_lines.append(f"✅ Passed: {passed_tests}")
-    report_lines.append(f"❌ Failed: {failed_tests}")
+
+    if failed_tests == 0:
+        report_lines.append("✅ ОБЩИЙ СТАТУС: ВСЕ ТЕСТЫ ПРОЙДЕНЫ!")
+    else:
+        report_lines.append(f"❌ ОБЩИЙ СТАТУС: {failed_tests} ТЕСТ(ОВ) С ОШИБКАМИ")
 
     pie_chart_file = os.path.join(results_dir, 'pie_chart.png')
     generate_pie_chart(passed_tests, failed_tests, pie_chart_file)
 
-    if failed_tests == 0:
-        report_lines.append("🫡 Overall Status: ALL TESTS PASSED!")
-    else:
-        report_lines.append(f"😱 Overall Status: {failed_tests} TEST(S) FAILED")
-
-    return "%0A".join(report_lines), pie_chart_file
+    return "\n".join(report_lines), pie_chart_file
 
 if __name__ == "__main__":
     import sys

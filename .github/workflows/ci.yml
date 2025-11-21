@@ -352,8 +352,10 @@ jobs:
         id: generate_report
         run: |
           python scripts/generate_telegram_report.py results/ > telegram_report.txt
-          cat telegram_report.txt
           echo "REPORT_MESSAGE=$(cat telegram_report.txt)" >> $GITHUB_ENV
+          CHART_FILE=$(python -c "import os; print(os.path.join('results', 'pie_chart.png'))")
+          echo "CHART_FILE=$CHART_FILE" >> $GITHUB_ENV
+          echo "Chart file path: $CHART_FILE"
 
       - name: Send Telegram notification
         if: always()
@@ -362,7 +364,7 @@ jobs:
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           message: ${{ env.REPORT_MESSAGE }}
-          photo: results/pie_chart.png
+          photo: ${{ env.CHART_FILE }}
           parse_mode: Markdown
 
   # === УВЕДОМЛЕНИЯ SLACK ===
