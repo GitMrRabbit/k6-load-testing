@@ -353,7 +353,7 @@ jobs:
         id: generate_report
         run: |
           OUTPUT=$(python scripts/generate_telegram_report.py results/)
-          REPORT_MESSAGE=$(echo "$OUTPUT" | awk '/^📊 K6 Load Test Report/,/CHART_FILE=/ {if (!/CHART_FILE=/) print}')
+          REPORT_MESSAGE=$(echo "$OUTPUT" | sed -n '/REPORT_START/,/REPORT_END/p' | sed '/REPORT_START/d;/REPORT_END/d')
           CHART_FILE=$(echo "$OUTPUT" | grep "CHART_FILE=" | cut -d'=' -f2 | tr -d ' ')
           echo "REPORT_MESSAGE<<EOF" >> $GITHUB_ENV
           echo "$REPORT_MESSAGE" >> $GITHUB_ENV
@@ -381,7 +381,7 @@ jobs:
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           message: |
             ${{ env.REPORT_MESSAGE }}
-          diagram_image: ${{ env.CHART_FILE }}
+          photo: ${{ env.CHART_FILE }}
 
   # === УВЕДОМЛЕНИЯ SLACK ===
   notify_slack:

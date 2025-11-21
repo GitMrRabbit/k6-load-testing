@@ -86,7 +86,9 @@ if __name__ == "__main__":
     import sys
     if len(sys.argv) > 1:
         report, chart_file = generate_telegram_report(sys.argv[1])
-        print(f"CHART_FILE={chart_file}")
+        print(f"REPORT_START")
         print(report)
+        print(f"REPORT_END")
+        print(f"CHART_FILE={chart_file}")
     else:
         print("Usage: python generate_telegram_report.py <results_directory>")
