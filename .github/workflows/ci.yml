@@ -339,8 +339,8 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y jq
-          pip install matplotlib
+          sudo apt-get install -y jq python3-pip
+          pip install matplotlib pandas
 
       - name: Download all test results
         uses: actions/download-artifact@v4
@@ -349,10 +349,18 @@ jobs:
           path: results/
           merge-multiple: true
 
-      - name: Generate Telegram report
-        id: generate_report
+      - name: Prepare test results data
         run: |
-          IMAGE_INFO=$(python scripts/generate_telegram_report.py results/)
+          mkdir -p results_clean
+          find results/ -name "*.json" -exec cp {} results_clean/ \; 2>/dev/null || true
+          echo "=== Найдены JSON файлы ==="
+          ls -la results_clean/ || echo "No files found"
+
+      - name: Generate Telegram report image
+        id: generate_image
+        run: |
+          IMAGE_INFO=$(python scripts/generate_telegram_report.py results_clean/)
+          echo "Script output: $IMAGE_INFO"
           IMAGE_FILE=$(echo "$IMAGE_INFO" | grep "IMAGE_FILE=" | cut -d'=' -f2)
           echo "IMAGE_FILE=$IMAGE_FILE" >> $GITHUB_ENV
           echo "Image file path: $IMAGE_FILE"
@@ -362,6 +370,10 @@ jobs:
         run: |
           if [ ! -f "${{ env.IMAGE_FILE }}" ]; then
             echo "❌ Error: Image file not found at ${{ env.IMAGE_FILE }}"
+            echo "=== Contents of results_clean/ ==="
+            ls -la results_clean/ || echo "Directory not found"
+            echo "=== Contents of scripts/ ==="
+            ls -la scripts/ || echo "Scripts directory not found"
             exit 1
           else
             echo "✅ Image file found: ${{ env.IMAGE_FILE }}"

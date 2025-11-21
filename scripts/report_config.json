@@ -1,0 +1,29 @@
+{
+  "style": {
+    "colors": {
+      "background": "#1e1e1e",
+      "text_primary": "#ffffff",
+      "text_secondary": "#cccccc",
+      "success": "#4CAF50",
+      "warning": "#FF9800",
+      "error": "#F44336",
+      "info": "#2196F3"
+    },
+    "fonts": {
+      "title": {"family": "sans-serif", "size": 24, "weight": "bold"},
+      "header": {"family": "sans-serif", "size": 16, "weight": "bold"},
+      "body": {"family": "sans-serif", "size": 12, "weight": "normal"},
+      "monospace": {"family": "monospace", "size": 10, "weight": "normal"}
+    }
+  },
+  "layout": {
+    "figure_size": [12, 16],
+    "dpi": 120,
+    "grid_ratios": [0.8, 1, 1.2]
+  },
+  "messages": {
+    "success": "ALL TESTS PASSED",
+    "partial_failure": "SOME TESTS FAILED",
+    "complete_failure": "ALL TESTS FAILED"
+  }
+}
