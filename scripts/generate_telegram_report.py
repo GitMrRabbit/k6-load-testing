@@ -5,8 +5,8 @@ import os
 import json
 from datetime import datetime
 import matplotlib.pyplot as plt
-from imgkit import from_string
-import uuid
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+import matplotlib.image as mpimg
 
 def count_errors_in_file(filepath):
     error_count = 0
@@ -39,75 +39,26 @@ def generate_pie_chart(passed, failed, output_file):
     plt.title(f"Total: {passed + failed}", color='white', fontsize=14)
     plt.savefig(output_file, dpi=100, facecolor='#2d2d2d')
     plt.close()
+    return output_file
 
-def generate_html_report(passed, failed, report_lines, output_file):
-    pie_chart_file = f"pie_chart_{uuid.uuid4()}.png"
-    generate_pie_chart(passed, failed, pie_chart_file)
+def generate_combined_image(passed, failed, report_lines, output_file):
+    pie_chart_file = generate_pie_chart(passed, failed, "pie_chart_temp.png")
+    pie_chart_img = mpimg.imread(pie_chart_file)
 
-    html_content = f"""
-    <html>
-        <head>
-            <style>
-                body {{
-                    background-color: #2d2d2d;
-                    color: white;
-                    font-family: Arial, sans-serif;
-                    padding: 20px;
-                    margin: 0;
-                    width: 800px;
-                }}
-                .header {{
-                    text-align: center;
-                    margin-bottom: 20px;
-                }}
-                .test-result {{
-                    background-color: #3d3d3d;
-                    border-radius: 5px;
-                    padding: 10px;
-                    margin-bottom: 10px;
-                }}
-                .summary {{
-                    background-color: #3d3d3d;
-                    border-radius: 5px;
-                    padding: 10px;
-                    margin-top: 20px;
-                    text-align: center;
-                }}
-                .chart {{
-                    text-align: center;
-                    margin-top: 20px;
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="header">
-                <h2>📊 K6 Load Test Report</h2>
-                <p>{report_lines[1]}</p>
-                <p>{report_lines[2]}</p>
-            </div>
-            <h3>🔹 РЕЗУЛЬТАТЫ ТЕСТОВ:</h3>
-    """
+    fig, ax = plt.subplots(figsize=(10, 12))
+    fig.patch.set_facecolor('#2d2d2d')
+    ax.set_facecolor('#2d2d2d')
+    ax.axis('off')
 
-    for line in report_lines[5:-5]:
-        html_content += f"<div class='test-result'><p>{line}</p></div>"
+    report_text = "\n".join(report_lines)
+    ax.text(0.5, 0.7, report_text, fontsize=10, color='white', ha='center', va='top', family='monospace')
 
-    html_content += f"""
-            <div class="summary">
-                <p>{report_lines[-5]}</p>
-                <p>{report_lines[-4]}</p>
-                <p>{report_lines[-2]}</p>
-            </div>
-            <div class="chart">
-                <img src="{pie_chart_file}" alt="Pie Chart" width="400"/>
-            </div>
-        </body>
-    </html>
-    """
+    imagebox = OffsetImage(pie_chart_img, zoom=0.8)
+    ab = AnnotationBbox(imagebox, (0.5, 0.2), frameon=False)
+    ax.add_artist(ab)
 
-    with open(output_file, 'w') as f:
-        f.write(html_content)
-
-    return pie_chart_file, output_file
+    plt.savefig(output_file, dpi=100, facecolor='#2d2d2d', bbox_inches='tight')
+    plt.close()
 
 def generate_telegram_report(results_dir):
     if not os.path.exists(results_dir):
@@ -120,6 +71,7 @@ def generate_telegram_report(results_dir):
     failed_tests = 0
     report_lines = []
     report_lines.append("📊 K6 Load Test Report")
+    report_lines.append("=" * 25)
     report_lines.append(f"📅 Дата: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     report_lines.append(f"📋 Всего тестов: {total_tests}")
     report_lines.append("")
@@ -149,17 +101,8 @@ def generate_telegram_report(results_dir):
     else:
         report_lines.append(f"❌ ОБЩИЙ СТАТУС: {failed_tests} ТЕСТ(ОВ) С ОШИБКАМИ")
 
-    html_file = os.path.join(results_dir, 'report.html')
-    pie_chart_file, html_file = generate_html_report(passed_tests, failed_tests, report_lines, html_file)
-
     image_file = os.path.join(results_dir, 'combined_report.png')
-    options = {
-        'format': 'png',
-        'encoding': 'UTF-8',
-        'width': '800',
-        'quiet': ''
-    }
-    from_string(open(html_file).read(), image_file, options=options)
+    generate_combined_image(passed_tests, failed_tests, report_lines, image_file)
 
     return image_file, None
 

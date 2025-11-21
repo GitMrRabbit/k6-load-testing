@@ -339,8 +339,8 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y jq wkhtmltopdf xvfb
-          pip install matplotlib imgkit
+          sudo apt-get install -y jq
+          pip install matplotlib
 
       - name: Download all test results
         uses: actions/download-artifact@v4
@@ -374,6 +374,7 @@ jobs:
           token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           photo: ${{ env.IMAGE_FILE }}
           caption: "📊 K6 Load Test Report"
+
 
   # === УВЕДОМЛЕНИЯ SLACK ===
   notify_slack:
