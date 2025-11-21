@@ -385,16 +385,6 @@ jobs:
             ${{ env.REPORT_MESSAGE }}
           diagram_image: ${{ env.CHART_FILE }}
 
-      - name: Send Telegram notification
-        if: always()
-        uses: appleboy/telegram-action@master
-        with:
-          to: ${{ secrets.TELEGRAM_CHAT_ID }}
-          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          message: ${{ env.REPORT_MESSAGE }}
-          photo: ${{ env.CHART_FILE }}
-          parse_mode: Markdown
-
   # === УВЕДОМЛЕНИЯ SLACK ===
   notify_slack:
     runs-on: ubuntu-latest
