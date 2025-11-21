@@ -33,7 +33,7 @@ def count_errors_in_file(filepath):
 def generate_modern_report(passed, failed, tests_data, output_file):
 
     fig = plt.figure(figsize=(12, 16), facecolor='#1e1e1e')
-    gs = GridSpec(3, 1, figure=fig, height_ratios=[0.8, 1, 1.2], hspace=0.3)
+    gs = GridSpec(3, 1, height_ratios=[0.8, 1, 1.2], hspace=0.3)
 
     ax_header = fig.add_subplot(gs[0])
     ax_header.set_facecolor('#1e1e1e')
@@ -57,12 +57,12 @@ def generate_modern_report(passed, failed, tests_data, output_file):
                                            edgecolor=status_color,
                                            linewidth=2))
 
-    ax_middle = fig.add_subplot(gs[1])
-    ax_middle.set_facecolor('#1e1e1e')
+    ax_pie = fig.add_subplot(gs[1])
+    ax_pie.set_position([0.1, 0.55, 0.35, 0.3])  # [left, bottom, width, height]
+    ax_status = fig.add_subplot(gs[1])
+    ax_status.set_position([0.55, 0.55, 0.4, 0.3])
 
-    gs_middle = GridSpec(1, 2, figure=fig, subplot_spec=gs[1], width_ratios=[1, 1])
-
-    ax_pie = fig.add_subplot(gs_middle[0])
+    ax_pie.set_facecolor('#1e1e1e')
     labels = ['PASSED', 'FAILED']
     sizes = [passed, failed]
     colors = ['#4CAF50', '#F44336']
@@ -81,7 +81,6 @@ def generate_modern_report(passed, failed, tests_data, output_file):
     ax_pie.axis('equal')
     ax_pie.set_title('Test Results Distribution', color='white', pad=20, weight='bold')
 
-    ax_status = fig.add_subplot(gs_middle[1])
     ax_status.set_facecolor('#1e1e1e')
     ax_status.axis('off')
 
@@ -127,6 +126,7 @@ def generate_modern_report(passed, failed, tests_data, output_file):
     y_pos -= row_height
 
     for test in tests_data:
+        # Цвет статуса
         status_color = '#4CAF50' if test['error_rate'] == 0 else '#F44336'
         status_text = 'PASS' if test['error_rate'] == 0 else 'FAIL'
 
