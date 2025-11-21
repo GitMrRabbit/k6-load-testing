@@ -32,8 +32,8 @@ def count_errors_in_file(filepath):
 
 def generate_modern_report(passed, failed, tests_data, output_file):
 
-    fig = plt.figure(figsize=(12, 16), facecolor='#1e1e1e')
-    gs = GridSpec(3, 1, height_ratios=[0.8, 1, 1.2], hspace=0.3)
+    fig = plt.figure(figsize=(12, 18), facecolor='#1e1e1e')
+    gs = GridSpec(3, 1, height_ratios=[0.8, 1.2, 1.5], hspace=0.4)
 
     ax_header = fig.add_subplot(gs[0])
     ax_header.set_facecolor('#1e1e1e')
@@ -57,12 +57,13 @@ def generate_modern_report(passed, failed, tests_data, output_file):
                                            edgecolor=status_color,
                                            linewidth=2))
 
-    ax_pie = fig.add_subplot(gs[1])
-    ax_pie.set_position([0.1, 0.55, 0.35, 0.3])  # [left, bottom, width, height]
-    ax_status = fig.add_subplot(gs[1])
-    ax_status.set_position([0.55, 0.55, 0.4, 0.3])
+    ax_middle = fig.add_subplot(gs[1])
+    ax_middle.set_facecolor('#1e1e1e')
+    ax_middle.axis('off')
 
-    ax_pie.set_facecolor('#1e1e1e')
+    gs_middle = GridSpec(1, 2, width_ratios=[1, 1])
+
+    ax_pie = fig.add_subplot(gs_middle[0])
     labels = ['PASSED', 'FAILED']
     sizes = [passed, failed]
     colors = ['#4CAF50', '#F44336']
@@ -80,11 +81,13 @@ def generate_modern_report(passed, failed, tests_data, output_file):
 
     ax_pie.axis('equal')
     ax_pie.set_title('Test Results Distribution', color='white', pad=20, weight='bold')
+    ax_pie.set_facecolor('#1e1e1e')
 
+    ax_status = fig.add_subplot(gs_middle[1])
     ax_status.set_facecolor('#1e1e1e')
     ax_status.axis('off')
 
-    y_pos = 0.8
+    y_pos = 0.85
     stats = [
         (f'{passed}', 'PASSED TESTS', '#4CAF50'),
         (f'{failed}', 'FAILED TESTS', '#F44336' if failed > 0 else '#4CAF50'),
@@ -94,13 +97,13 @@ def generate_modern_report(passed, failed, tests_data, output_file):
     for value, label, color in stats:
         ax_status.text(0.5, y_pos, value, fontsize=28, color=color,
                       ha='center', va='center', weight='bold')
-        ax_status.text(0.5, y_pos - 0.15, label, fontsize=12, color='#cccccc',
+        ax_status.text(0.5, y_pos - 0.12, label, fontsize=12, color='#cccccc',
                       ha='center', va='center')
-        y_pos -= 0.3
+        y_pos -= 0.25
 
     overall_status = "ALL TESTS PASSED" if failed == 0 else f"{failed} TESTS FAILED"
     status_color = '#4CAF50' if failed == 0 else '#F44336'
-    ax_status.text(0.5, 0.1, overall_status, fontsize=16, color=status_color,
+    ax_status.text(0.5, 0.15, overall_status, fontsize=16, color=status_color,
                   ha='center', va='center', weight='bold',
                   bbox=dict(boxstyle="round,pad=0.5", facecolor='#2d2d2d',
                            edgecolor=status_color, linewidth=2))
@@ -114,10 +117,10 @@ def generate_modern_report(passed, failed, tests_data, output_file):
                    weight='bold')
 
     y_pos = 0.85
-    row_height = 0.08
+    row_height = 0.07
 
     headers = ['TEST NAME', 'REQUESTS', 'ERRORS', 'ERROR RATE', 'STATUS']
-    header_x_positions = [0.02, 0.3, 0.5, 0.65, 0.85]
+    header_x_positions = [0.02, 0.25, 0.45, 0.65, 0.85]
 
     for header, x_pos in zip(headers, header_x_positions):
         ax_details.text(x_pos, y_pos, header, fontsize=11, color='#888888',
@@ -126,12 +129,15 @@ def generate_modern_report(passed, failed, tests_data, output_file):
     y_pos -= row_height
 
     for test in tests_data:
-        # Цвет статуса
         status_color = '#4CAF50' if test['error_rate'] == 0 else '#F44336'
         status_text = 'PASS' if test['error_rate'] == 0 else 'FAIL'
 
+        test_name = test['name']
+        if len(test_name) > 15:
+            test_name = test_name[:12] + '...'
+
         cells = [
-            test['name'].upper(),
+            test_name.upper(),
             f"{test['requests']:,}",
             str(test['errors']),
             f"{test['error_rate']:.2f}%",
@@ -141,7 +147,8 @@ def generate_modern_report(passed, failed, tests_data, output_file):
         for cell, x_pos in zip(cells, header_x_positions):
             color = 'white' if x_pos != 0.85 else status_color
             weight = 'normal' if x_pos != 0.85 else 'bold'
-            ax_details.text(x_pos, y_pos, cell, fontsize=10, color=color,
+            font_size = 9 if x_pos == 0.02 else 10 
+            ax_details.text(x_pos, y_pos, cell, fontsize=font_size, color=color,
                            ha='left', va='center', weight=weight,
                            family='monospace' if x_pos != 0.02 else 'sans-serif')
 
@@ -158,6 +165,29 @@ def generate_modern_report(passed, failed, tests_data, output_file):
                 pad_inches=0.5)
     plt.close()
     print(f"Report generated: {output_file}")
+
+def get_test_display_name(filename):
+    name_without_ext = filename.replace('.json', '')
+
+    parts = name_without_ext.split('-')
+
+    test_names = {
+        'smoke': 'Smoke Test',
+        'load': 'Load Test',
+        'stress': 'Stress Test',
+        'volume': 'Volume Test',
+        'security': 'Security Test',
+        'adaptive': 'Adaptive Test'
+    }
+
+    for test_key, display_name in test_names.items():
+        if test_key in name_without_ext.lower():
+            return display_name
+
+    if len(parts) > 1:
+        return parts[0].title()
+    else:
+        return name_without_ext
 
 def generate_telegram_report(results_dir):
     print(f"Scanning directory: {results_dir}")
@@ -181,7 +211,7 @@ def generate_telegram_report(results_dir):
         print(f"Processing file: {filename}")
         error_count, total_requests = count_errors_in_file(filepath)
 
-        test_name = filename.replace('.json', '').split('-')[-1]
+        test_name = get_test_display_name(filename)
         error_rate = (error_count / total_requests * 100) if total_requests > 0 else 0
 
         print(f"Test: {test_name}, Requests: {total_requests}, Errors: {error_count}, Rate: {error_rate:.2f}%")
