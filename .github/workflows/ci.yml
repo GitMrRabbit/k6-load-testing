@@ -365,6 +365,7 @@ jobs:
             exit 1
           else
             echo "✅ Image file found: ${{ env.IMAGE_FILE }}"
+          fi
 
       - name: Send Telegram notification
         if: always()
