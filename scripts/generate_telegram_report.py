@@ -41,17 +41,17 @@ def generate_modern_report(passed, failed, tests_data, output_file):
 
     current_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-    ax_header.text(0.4, 0.85, 'K6 LOAD TEST REPORT',  #   0.5  0.4
+    ax_header.text(0.3, 0.85, 'K6 LOAD TEST REPORT',  #   0.5  0.4
                    fontsize=24, color='#ffffff', ha='center', va='center',
                    weight='bold', family='sans-serif')
 
-    ax_header.text(0.4, 0.65, f'Date: {current_date}',  # 0.5  0.4
+    ax_header.text(0.3, 0.65, f'Date: {current_date}',  # 0.5  0.4
                    fontsize=12, color='#cccccc', ha='center', va='center',
                    family='monospace')
 
     total_tests = passed + failed
     status_color = '#4CAF50' if failed == 0 else '#FF6B6B'
-    ax_header.text(0.98, 0.95, f'TOTAL: {total_tests}',
+    ax_header.text(1.0, 1.0, f'TOTAL: {total_tests}',
                    fontsize=16, color=status_color, ha='right', va='top',
                    weight='bold', bbox=dict(boxstyle="round,pad=0.3",
                                            facecolor='#2d2d2d',
@@ -62,7 +62,7 @@ def generate_modern_report(passed, failed, tests_data, output_file):
     ax_middle.set_facecolor('#1e1e1e')
     ax_middle.axis('off')
 
-    ax_pie = fig.add_axes([0.1, 0.48, 0.4, 0.4])  #  bottom с 0.52 до 0.5
+    ax_pie = fig.add_axes([0.1, 0.35, 0.4, 0.4])  #  bottom с 0.52 до 0.5
     labels = ['PASSED', 'FAILED']
     sizes = [passed, failed]
     colors = ['#4CAF50', '#F44336']
