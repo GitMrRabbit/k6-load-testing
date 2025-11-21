@@ -353,17 +353,16 @@ jobs:
         id: generate_report
         run: |
           OUTPUT=$(python scripts/generate_telegram_report.py results/)
-          REPORT_MESSAGE=$(echo "$OUTPUT" | sed '/^CHART_FILE=/,$d')
-          CHART_FILE=$(echo "$OUTPUT" | grep "CHART_FILE=" | cut -d'=' -f2)
-
+          REPORT_MESSAGE=$(echo "$OUTPUT" | awk '/^📊 K6 Load Test Report/,/CHART_FILE=/ {if (!/CHART_FILE=/) print}')
+          CHART_FILE=$(echo "$OUTPUT" | grep "CHART_FILE=" | cut -d'=' -f2 | tr -d ' ')
           echo "REPORT_MESSAGE<<EOF" >> $GITHUB_ENV
           echo "$REPORT_MESSAGE" >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
           echo "CHART_FILE=$CHART_FILE" >> $GITHUB_ENV
-
           echo "Report message:"
           echo "$REPORT_MESSAGE"
           echo "Chart file path: $CHART_FILE"
+          ls -la "$CHART_FILE"
 
       - name: Verify chart file exists
         run: |
@@ -372,7 +371,6 @@ jobs:
             exit 1
           else
             echo "✅ Chart file found: ${{ env.CHART_FILE }}"
-            ls -la "${{ env.CHART_FILE }}"
           fi
 
       - name: Send Telegram notification

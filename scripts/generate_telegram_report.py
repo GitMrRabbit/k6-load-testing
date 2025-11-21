@@ -41,62 +41,52 @@ def generate_pie_chart(passed, failed, output_file):
 def generate_telegram_report(results_dir):
     if not os.path.exists(results_dir):
         return "❌ Ошибка: Директория с результатами не найдена.", None
-
     json_files = [f for f in os.listdir(results_dir) if f.endswith('.json')]
     if not json_files:
         return "❌ Ошибка: Нет JSON-файлов с результатами тестов.", None
-
     total_tests = len(json_files)
     passed_tests = 0
     failed_tests = 0
     report_lines = []
-
     report_lines.append("📊 K6 Load Test Report")
     report_lines.append("=" * 25)
     report_lines.append(f"📅 Дата: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     report_lines.append(f"📋 Всего тестов: {total_tests}")
     report_lines.append("")
-
     report_lines.append("🔹 РЕЗУЛЬТАТЫ ТЕСТОВ:")
     for filename in json_files:
         filepath = os.path.join(results_dir, filename)
         error_count, total_requests = count_errors_in_file(filepath)
         test_name = filename.split('-')[0]
         error_rate = (error_count / total_requests * 100) if total_requests > 0 else 0
-
         if error_rate == 0:
             passed_tests += 1
             status = "✅"
         else:
             failed_tests += 1
             status = "❌"
-
         report_lines.append(f"  {status} {test_name}:")
         report_lines.append(f"    Запросы: {total_requests}")
         report_lines.append(f"    Ошибки: {error_count}")
         report_lines.append(f"    Процент ошибок: {error_rate:.2f}%")
         report_lines.append("")
-
     report_lines.append("---")
     report_lines.append(f"✅ Успешно: {passed_tests}")
     report_lines.append(f"❌ С ошибками: {failed_tests}")
     report_lines.append("")
-
     if failed_tests == 0:
         report_lines.append("✅ ОБЩИЙ СТАТУС: ВСЕ ТЕСТЫ ПРОЙДЕНЫ!")
     else:
         report_lines.append(f"❌ ОБЩИЙ СТАТУС: {failed_tests} ТЕСТ(ОВ) С ОШИБКАМИ")
-
     pie_chart_file = os.path.join(results_dir, 'pie_chart.png')
     generate_pie_chart(passed_tests, failed_tests, pie_chart_file)
-
     return "\n".join(report_lines), pie_chart_file
 
 if __name__ == "__main__":
     import sys
     if len(sys.argv) > 1:
         report, chart_file = generate_telegram_report(sys.argv[1])
-        print(report)
         print(f"CHART_FILE={chart_file}")
+        print(report)
     else:
         print("Usage: python generate_telegram_report.py <results_directory>")
