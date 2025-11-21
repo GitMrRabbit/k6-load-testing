@@ -5,8 +5,7 @@ import os
 import json
 from datetime import datetime
 import matplotlib.pyplot as plt
-from matplotlib.offsetbox import OffsetImage, AnnotationBbox
-import matplotlib.image as mpimg
+from matplotlib.gridspec import GridSpec
 
 def count_errors_in_file(filepath):
     error_count = 0
@@ -27,35 +26,25 @@ def count_errors_in_file(filepath):
                 continue
     return error_count, total_requests
 
-def generate_pie_chart(passed, failed, output_file):
+def generate_combined_image(passed, failed, report_lines, output_file):
+    fig = plt.figure(figsize=(10, 14), facecolor='#2d2d2d')
+    gs = GridSpec(2, 1, figure=fig, height_ratios=[1, 1.5])
+
+    ax1 = fig.add_subplot(gs[0])
     labels = ['Passed', 'Failed']
     sizes = [passed, failed]
     colors = ['#4CAF50', '#F44336']
-    fig, ax = plt.subplots(figsize=(6, 4))
-    ax.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%', startangle=90, textprops={'color': 'white'})
-    ax.axis('equal')
-    ax.set_facecolor('#2d2d2d')
-    fig.patch.set_facecolor('#2d2d2d')
-    plt.title(f"Total: {passed + failed}", color='white', fontsize=14)
-    plt.savefig(output_file, dpi=100, facecolor='#2d2d2d')
-    plt.close()
-    return output_file
+    ax1.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%', startangle=90, textprops={'color': 'white'})
+    ax1.axis('equal')
+    ax1.set_facecolor('#2d2d2d')
+    ax1.set_title(f"Total: {passed + failed}", color='white', fontsize=14)
 
-def generate_combined_image(passed, failed, report_lines, output_file):
-    pie_chart_file = generate_pie_chart(passed, failed, "pie_chart_temp.png")
-    pie_chart_img = mpimg.imread(pie_chart_file)
-
-    fig, ax = plt.subplots(figsize=(10, 12))
-    fig.patch.set_facecolor('#2d2d2d')
-    ax.set_facecolor('#2d2d2d')
-    ax.axis('off')
+    ax2 = fig.add_subplot(gs[1])
+    ax2.axis('off')
+    ax2.set_facecolor('#2d2d2d')
 
     report_text = "\n".join(report_lines)
-    ax.text(0.5, 0.7, report_text, fontsize=10, color='white', ha='center', va='top', family='monospace')
-
-    imagebox = OffsetImage(pie_chart_img, zoom=0.8)
-    ab = AnnotationBbox(imagebox, (0.5, 0.2), frameon=False)
-    ax.add_artist(ab)
+    ax2.text(0.02, 0.98, report_text, fontsize=10, color='white', ha='left', va='top', family='monospace', transform=ax2.transAxes)
 
     plt.savefig(output_file, dpi=100, facecolor='#2d2d2d', bbox_inches='tight')
     plt.close()

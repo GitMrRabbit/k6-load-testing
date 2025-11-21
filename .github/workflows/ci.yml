@@ -375,7 +375,6 @@ jobs:
           photo: ${{ env.IMAGE_FILE }}
           caption: "📊 K6 Load Test Report"
 
-
   # === УВЕДОМЛЕНИЯ SLACK ===
   notify_slack:
     runs-on: ubuntu-latest
