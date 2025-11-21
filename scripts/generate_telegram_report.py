@@ -5,6 +5,8 @@ import os
 import json
 from datetime import datetime
 import matplotlib.pyplot as plt
+from imgkit import from_string
+import uuid
 
 def count_errors_in_file(filepath):
     error_count = 0
@@ -37,6 +39,75 @@ def generate_pie_chart(passed, failed, output_file):
     plt.title(f"Total: {passed + failed}", color='white', fontsize=14)
     plt.savefig(output_file, dpi=100, facecolor='#2d2d2d')
     plt.close()
+    return output_file
+
+def generate_html_report(passed, failed, report_lines, output_file):
+    pie_chart_file = f"pie_chart_{uuid.uuid4()}.png"
+    generate_pie_chart(passed, failed, pie_chart_file)
+
+    html_content = f"""
+    <html>
+        <head>
+            <style>
+                body {{
+                    background-color: #2d2d2d;
+                    color: white;
+                    font-family: Arial, sans-serif;
+                    padding: 20px;
+                    margin: 0;
+                }}
+                .header {{
+                    text-align: center;
+                    margin-bottom: 20px;
+                }}
+                .test-result {{
+                    background-color: #3d3d3d;
+                    border-radius: 5px;
+                    padding: 10px;
+                    margin-bottom: 10px;
+                }}
+                .summary {{
+                    background-color: #3d3d3d;
+                    border-radius: 5px;
+                    padding: 10px;
+                    margin-top: 20px;
+                    text-align: center;
+                }}
+                .chart {{
+                    text-align: center;
+                    margin-top: 20px;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h2>📊 K6 Load Test Report</h2>
+                <p>{report_lines[1]}</p>
+                <p>{report_lines[2]}</p>
+            </div>
+            <h3>🔹 РЕЗУЛЬТАТЫ ТЕСТОВ:</h3>
+    """
+
+    for line in report_lines[5:-5]:
+        html_content += f"<div class='test-result'><p>{line}</p></div>"
+
+    html_content += f"""
+            <div class="summary">
+                <p>{report_lines[-5]}</p>
+                <p>{report_lines[-4]}</p>
+                <p>{report_lines[-2]}</p>
+            </div>
+            <div class="chart">
+                <img src="{pie_chart_file}" alt="Pie Chart" width="400"/>
+            </div>
+        </body>
+    </html>
+    """
+
+    with open(output_file, 'w') as f:
+        f.write(html_content)
+
+    return pie_chart_file, output_file
 
 def generate_telegram_report(results_dir):
     if not os.path.exists(results_dir):
@@ -49,7 +120,6 @@ def generate_telegram_report(results_dir):
     failed_tests = 0
     report_lines = []
     report_lines.append("📊 K6 Load Test Report")
-    report_lines.append("=" * 25)
     report_lines.append(f"📅 Дата: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     report_lines.append(f"📋 Всего тестов: {total_tests}")
     report_lines.append("")
@@ -78,17 +148,19 @@ def generate_telegram_report(results_dir):
         report_lines.append("✅ ОБЩИЙ СТАТУС: ВСЕ ТЕСТЫ ПРОЙДЕНЫ!")
     else:
         report_lines.append(f"❌ ОБЩИЙ СТАТУС: {failed_tests} ТЕСТ(ОВ) С ОШИБКАМИ")
-    pie_chart_file = os.path.join(results_dir, 'pie_chart.png')
-    generate_pie_chart(passed_tests, failed_tests, pie_chart_file)
-    return "\n".join(report_lines), pie_chart_file
+
+    html_file = os.path.join(results_dir, 'report.html')
+    pie_chart_file, html_file = generate_html_report(passed_tests, failed_tests, report_lines, html_file)
+
+    image_file = os.path.join(results_dir, 'combined_report.png')
+    from_string(html_file, image_file, options={'format': 'png', 'encoding': 'UTF-8'})
+
+    return image_file
 
 if __name__ == "__main__":
     import sys
     if len(sys.argv) > 1:
-        report, chart_file = generate_telegram_report(sys.argv[1])
-        print(f"REPORT_START")
-        print(report)
-        print(f"REPORT_END")
-        print(f"CHART_FILE={chart_file}")
+        image_file = generate_telegram_report(sys.argv[1])
+        print(f"IMAGE_FILE={image_file}")
     else:
         print("Usage: python generate_telegram_report.py <results_directory>")
