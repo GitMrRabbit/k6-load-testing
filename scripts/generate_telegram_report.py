@@ -39,18 +39,17 @@ def generate_modern_report(passed, failed, tests_data, output_file):
     ax_header.set_facecolor('#1e1e1e')
     ax_header.axis('off')
 
-    ax_header.text(0.5, 0.8, 'K6 LOAD TEST REPORT',
+    ax_header.text(0.4, 0.85, 'K6 LOAD TEST REPORT',  #   0.5  0.4
                    fontsize=24, color='#ffffff', ha='center', va='center',
                    weight='bold', family='sans-serif')
 
-    current_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    ax_header.text(0.5, 0.6, f'Date: {current_date}',
+    ax_header.text(0.4, 0.65, f'Date: {current_date}',  # 0.5  0.4
                    fontsize=12, color='#cccccc', ha='center', va='center',
                    family='monospace')
 
     total_tests = passed + failed
     status_color = '#4CAF50' if failed == 0 else '#FF6B6B'
-    ax_header.text(0.95, 0.9, f'TOTAL: {total_tests}',
+    ax_header.text(0.98, 0.95, f'TOTAL: {total_tests}',
                    fontsize=16, color=status_color, ha='right', va='top',
                    weight='bold', bbox=dict(boxstyle="round,pad=0.3",
                                            facecolor='#2d2d2d',
@@ -61,7 +60,7 @@ def generate_modern_report(passed, failed, tests_data, output_file):
     ax_middle.set_facecolor('#1e1e1e')
     ax_middle.axis('off')
 
-    ax_pie = fig.add_axes([0.1, 0.52, 0.4, 0.4])  # [left, bottom, width, height]
+    ax_pie = fig.add_axes([0.1, 0.48, 0.4, 0.4])  #  bottom с 0.52 до 0.5
     labels = ['PASSED', 'FAILED']
     sizes = [passed, failed]
     colors = ['#4CAF50', '#F44336']
@@ -88,7 +87,7 @@ def generate_modern_report(passed, failed, tests_data, output_file):
     y_pos = 0.9
     stats = [
         (f'{passed}', 'PASSED TESTS', '#4CAF50'),
-        (f'{failed}', 'FAILED TESTS', '#F44336' if failed > 0 else '#4CAF50'),
+        (f'{failed}', 'FAILED TESTS', '#F44336' if failed > 0 else '#4CAF50'),  # Исправил FALLED на FAILED
         (f'{total_tests}', 'TOTAL TESTS', '#2196F3')
     ]
 
@@ -162,6 +161,7 @@ def generate_modern_report(passed, failed, tests_data, output_file):
     print(f"Report generated: {output_file}")
 
 def get_test_display_name(filename):
+
     name_without_ext = filename.replace('.json', '')
 
     test_names = {
