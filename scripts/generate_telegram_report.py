@@ -33,7 +33,7 @@ def count_errors_in_file(filepath):
 def generate_modern_report(passed, failed, tests_data, output_file):
 
     fig = plt.figure(figsize=(12, 16), facecolor='#1e1e1e')
-    gs = GridSpec(3, 1, height_ratios=[0.7, 1, 1.1], hspace=0.4) # down block 3
+    gs = GridSpec(3, 1, height_ratios=[0.7, 1, 1.5], hspace=0.4) # down block 3
 
     ax_header = fig.add_subplot(gs[0])
     ax_header.set_facecolor('#1e1e1e')
@@ -50,8 +50,8 @@ def generate_modern_report(passed, failed, tests_data, output_file):
                    family='monospace')
 
     total_tests = passed + failed
-    status_color = '#4CAF50' if failed == 0 else '#FF6B6B'
-    ax_header.text(1.3, 1.5, f'TOTAL: {total_tests}',
+    status_color = '#4CAF50' if failed == 0 else '#FF6B6B' # крч будет зависить от прогона - ок - зелёный нет - аленькой
+    ax_header.text(1.0, 1.5, f'TOTAL: {total_tests}',
                    fontsize=16, color=status_color, ha='right', va='top',
                    weight='bold', bbox=dict(boxstyle="round,pad=0.3",
                                            facecolor='#2d2d2d',
@@ -116,7 +116,7 @@ def generate_modern_report(passed, failed, tests_data, output_file):
                    weight='bold')
 
     y_pos = 0.85
-    row_height = 0.06
+    row_height = 0.08 # || string up down
 
     headers = ['TEST NAME', 'REQUESTS', 'ERRORS', 'ERROR RATE', 'STATUS']
     header_x_positions = [0.02, 0.25, 0.45, 0.65, 0.85]
