@@ -39,6 +39,8 @@ def generate_modern_report(passed, failed, tests_data, output_file):
     ax_header.set_facecolor('#1e1e1e')
     ax_header.axis('off')
 
+    current_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
     ax_header.text(0.4, 0.85, 'K6 LOAD TEST REPORT',  #   0.5  0.4
                    fontsize=24, color='#ffffff', ha='center', va='center',
                    weight='bold', family='sans-serif')
