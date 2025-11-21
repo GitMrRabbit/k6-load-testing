@@ -338,6 +338,7 @@ jobs:
 
       - name: Install dependencies
         run: |
+          sudo apt-get update
           sudo apt-get install -y jq
           pip install matplotlib
 
@@ -351,11 +352,38 @@ jobs:
       - name: Generate Telegram report
         id: generate_report
         run: |
-          python scripts/generate_telegram_report.py results/ > telegram_report.txt
-          echo "REPORT_MESSAGE=$(cat telegram_report.txt)" >> $GITHUB_ENV
-          CHART_FILE=$(python -c "import os; print(os.path.join('results', 'pie_chart.png'))")
+          OUTPUT=$(python scripts/generate_telegram_report.py results/)
+          REPORT_MESSAGE=$(echo "$OUTPUT" | sed '/^CHART_FILE=/,$d')
+          CHART_FILE=$(echo "$OUTPUT" | grep "CHART_FILE=" | cut -d'=' -f2)
+
+          echo "REPORT_MESSAGE<<EOF" >> $GITHUB_ENV
+          echo "$REPORT_MESSAGE" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
           echo "CHART_FILE=$CHART_FILE" >> $GITHUB_ENV
+
+          echo "Report message:"
+          echo "$REPORT_MESSAGE"
           echo "Chart file path: $CHART_FILE"
+
+      - name: Verify chart file exists
+        run: |
+          if [ ! -f "${{ env.CHART_FILE }}" ]; then
+            echo "❌ Error: Chart file not found at ${{ env.CHART_FILE }}"
+            exit 1
+          else
+            echo "✅ Chart file found: ${{ env.CHART_FILE }}"
+            ls -la "${{ env.CHART_FILE }}"
+          fi
+
+      - name: Send Telegram notification
+        if: always()
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_CHAT_ID }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          message: |
+            ${{ env.REPORT_MESSAGE }}
+          diagram_image: ${{ env.CHART_FILE }}
 
       - name: Send Telegram notification
         if: always()

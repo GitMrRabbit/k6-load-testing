@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+
 import os
 import json
 from datetime import datetime
@@ -8,7 +9,6 @@ import matplotlib.pyplot as plt
 def count_errors_in_file(filepath):
     error_count = 0
     total_requests = 0
-
     with open(filepath, 'r') as f:
         for line in f:
             if not line.strip():
@@ -23,14 +23,12 @@ def count_errors_in_file(filepath):
                         error_count += 1
             except json.JSONDecodeError:
                 continue
-
     return error_count, total_requests
 
 def generate_pie_chart(passed, failed, output_file):
-    labels = ['✅ Passed', '❌ Failed']
+    labels = ['Passed', 'Failed']
     sizes = [passed, failed]
     colors = ['#4CAF50', '#F44336']
-
     fig, ax = plt.subplots(figsize=(6, 4))
     ax.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%', startangle=90, textprops={'color': 'white'})
     ax.axis('equal')
@@ -41,7 +39,6 @@ def generate_pie_chart(passed, failed, output_file):
     plt.close()
 
 def generate_telegram_report(results_dir):
-    """диаграмма"""
     if not os.path.exists(results_dir):
         return "❌ Ошибка: Директория с результатами не найдена.", None
 
@@ -52,7 +49,6 @@ def generate_telegram_report(results_dir):
     total_tests = len(json_files)
     passed_tests = 0
     failed_tests = 0
-
     report_lines = []
 
     report_lines.append("📊 K6 Load Test Report")
@@ -65,7 +61,6 @@ def generate_telegram_report(results_dir):
     for filename in json_files:
         filepath = os.path.join(results_dir, filename)
         error_count, total_requests = count_errors_in_file(filepath)
-
         test_name = filename.split('-')[0]
         error_rate = (error_count / total_requests * 100) if total_requests > 0 else 0
 
@@ -76,18 +71,10 @@ def generate_telegram_report(results_dir):
             failed_tests += 1
             status = "❌"
 
-        report_lines.append(
-            f"  {status} {test_name}:"
-        )
-        report_lines.append(
-            f"    Запросы: {total_requests}"
-        )
-        report_lines.append(
-            f"    Ошибки: {error_count}"
-        )
-        report_lines.append(
-            f"    Процент ошибок: {error_rate:.2f}%"
-        )
+        report_lines.append(f"  {status} {test_name}:")
+        report_lines.append(f"    Запросы: {total_requests}")
+        report_lines.append(f"    Ошибки: {error_count}")
+        report_lines.append(f"    Процент ошибок: {error_rate:.2f}%")
         report_lines.append("")
 
     report_lines.append("---")
@@ -110,7 +97,6 @@ if __name__ == "__main__":
     if len(sys.argv) > 1:
         report, chart_file = generate_telegram_report(sys.argv[1])
         print(report)
-        if chart_file:
-            print(f"Chart file: {chart_file}")
+        print(f"CHART_FILE={chart_file}")
     else:
         print("Usage: python generate_telegram_report.py <results_directory>")
