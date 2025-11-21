@@ -33,7 +33,7 @@ def count_errors_in_file(filepath):
 def generate_modern_report(passed, failed, tests_data, output_file):
 
     fig = plt.figure(figsize=(12, 16), facecolor='#1e1e1e')
-    gs = GridSpec(3, 1, height_ratios=[0.7, 1, 1.3], hspace=0.3)
+    gs = GridSpec(3, 1, height_ratios=[0.7, 1, 1.1], hspace=0.4) # down block 3
 
     ax_header = fig.add_subplot(gs[0])
     ax_header.set_facecolor('#1e1e1e')
@@ -51,7 +51,7 @@ def generate_modern_report(passed, failed, tests_data, output_file):
 
     total_tests = passed + failed
     status_color = '#4CAF50' if failed == 0 else '#FF6B6B'
-    ax_header.text(1.0, 1.0, f'TOTAL: {total_tests}',
+    ax_header.text(1.3, 1.5, f'TOTAL: {total_tests}',
                    fontsize=16, color=status_color, ha='right', va='top',
                    weight='bold', bbox=dict(boxstyle="round,pad=0.3",
                                            facecolor='#2d2d2d',
@@ -62,7 +62,7 @@ def generate_modern_report(passed, failed, tests_data, output_file):
     ax_middle.set_facecolor('#1e1e1e')
     ax_middle.axis('off')
 
-    ax_pie = fig.add_axes([0.1, 0.35, 0.4, 0.4])  #  bottom с 0.52 до 0.5
+    ax_pie = fig.add_axes([0.15, 0.4, 0.4, 0.4])  #  bottom с 0.52 до 0.5
     labels = ['PASSED', 'FAILED']
     sizes = [passed, failed]
     colors = ['#4CAF50', '#F44336']
