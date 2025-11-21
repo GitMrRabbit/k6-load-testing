@@ -339,7 +339,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y jq wkhtmltopdf
+          sudo apt-get install -y jq wkhtmltopdf xvfb
           pip install matplotlib imgkit
 
       - name: Download all test results
@@ -352,7 +352,8 @@ jobs:
       - name: Generate Telegram report
         id: generate_report
         run: |
-          IMAGE_FILE=$(python scripts/generate_telegram_report.py results/)
+          IMAGE_INFO=$(python scripts/generate_telegram_report.py results/)
+          IMAGE_FILE=$(echo "$IMAGE_INFO" | grep "IMAGE_FILE=" | cut -d'=' -f2)
           echo "IMAGE_FILE=$IMAGE_FILE" >> $GITHUB_ENV
           echo "Image file path: $IMAGE_FILE"
           ls -la "$IMAGE_FILE"
@@ -364,7 +365,6 @@ jobs:
             exit 1
           else
             echo "✅ Image file found: ${{ env.IMAGE_FILE }}"
-          fi
 
       - name: Send Telegram notification
         if: always()

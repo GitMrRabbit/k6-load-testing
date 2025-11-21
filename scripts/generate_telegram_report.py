@@ -39,7 +39,6 @@ def generate_pie_chart(passed, failed, output_file):
     plt.title(f"Total: {passed + failed}", color='white', fontsize=14)
     plt.savefig(output_file, dpi=100, facecolor='#2d2d2d')
     plt.close()
-    return output_file
 
 def generate_html_report(passed, failed, report_lines, output_file):
     pie_chart_file = f"pie_chart_{uuid.uuid4()}.png"
@@ -55,6 +54,7 @@ def generate_html_report(passed, failed, report_lines, output_file):
                     font-family: Arial, sans-serif;
                     padding: 20px;
                     margin: 0;
+                    width: 800px;
                 }}
                 .header {{
                     text-align: center;
@@ -111,10 +111,10 @@ def generate_html_report(passed, failed, report_lines, output_file):
 
 def generate_telegram_report(results_dir):
     if not os.path.exists(results_dir):
-        return "❌ Ошибка: Директория с результатами не найдена.", None
+        return None, "❌ Ошибка: Директория с результатами не найдена."
     json_files = [f for f in os.listdir(results_dir) if f.endswith('.json')]
     if not json_files:
-        return "❌ Ошибка: Нет JSON-файлов с результатами тестов.", None
+        return None, "❌ Ошибка: Нет JSON-файлов с результатами тестов."
     total_tests = len(json_files)
     passed_tests = 0
     failed_tests = 0
@@ -153,14 +153,23 @@ def generate_telegram_report(results_dir):
     pie_chart_file, html_file = generate_html_report(passed_tests, failed_tests, report_lines, html_file)
 
     image_file = os.path.join(results_dir, 'combined_report.png')
-    from_string(html_file, image_file, options={'format': 'png', 'encoding': 'UTF-8'})
+    options = {
+        'format': 'png',
+        'encoding': 'UTF-8',
+        'width': '800',
+        'quiet': ''
+    }
+    from_string(open(html_file).read(), image_file, options=options)
 
-    return image_file
+    return image_file, None
 
 if __name__ == "__main__":
     import sys
     if len(sys.argv) > 1:
-        image_file = generate_telegram_report(sys.argv[1])
-        print(f"IMAGE_FILE={image_file}")
+        image_file, error = generate_telegram_report(sys.argv[1])
+        if error:
+            print(error)
+        else:
+            print(f"IMAGE_FILE={image_file}")
     else:
         print("Usage: python generate_telegram_report.py <results_directory>")
