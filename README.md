@@ -50,7 +50,9 @@ k6-load-testing/
 ### HTML отчёт выглядит примерно [так](txt-info/screen/html.png)
 ### Полный html отчёт скачать и посмотреть можно тут: 
 #### actions ➡️ runs ➡️ html-report 
-#### там же сырые json файлы
+#### (там же сырые json файлы)
+### Добавлена небольшая отбивка после прогона в [Telegramm](txt-info/screen/telegramm.png)
+
 
 ### Предварительные требования
 
