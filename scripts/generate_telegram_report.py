@@ -51,7 +51,7 @@ def generate_modern_report(passed, failed, tests_data, output_file):
 
     total_tests = passed + failed
     status_color = '#4CAF50' if failed == 0 else '#FF6B6B' # крч будет зависить от прогона - ок - зелёный нет - аленькой
-    ax_header.text(0.85, 1.5, f'TOTAL: {total_tests}',
+    ax_header.text(0.87, 1.5, f'TOTAL: {total_tests}',
                    fontsize=16, color=status_color, ha='right', va='top',
                    weight='bold', bbox=dict(boxstyle="round,pad=0.3",
                                            facecolor='#2d2d2d',
